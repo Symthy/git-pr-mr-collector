@@ -1,0 +1,10 @@
+[Unit]
+Description = get server resource state log
+
+[Service]
+ExecStart = /root/getstatlog.sh
+Restart = no
+Type = simple
+
+[Install]
+WantedBy = multi-user.target
