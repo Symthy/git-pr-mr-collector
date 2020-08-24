@@ -10,18 +10,47 @@ PID_VALUE_COLUMN_COUNT = 12
 FILTER_VALUE = 1.0
 
 
-def write_csv_file(pids: List[str], array2d: List[List[str]]):
-    header = [''] + pids
-    with open('../output/top.csv', 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile, lineterminator='\n')
-        writer.writerow(header)
-        writer.writerows(array2d)
+def create_max_value_order(str_max_values: List[str]):
+    max_values: List[float] = list(map(lambda s: float(s), str_max_values))
+    sorted_max_values = sorted(max_values, reverse=True)
+    max_order_indexes: List[int] = [max_values.index(v) + 1 for v in sorted_max_values]
+    return [0] + max_order_indexes
+
+
+def create_max_value_per_pid(array2d: List[List[str]]):
+    rows_num: int = len(array2d)
+    columns_num: int = len(array2d[0])
+    max_values: List[str] = []
+    for j in range(columns_num):
+        if j == 0:
+            continue
+        max = '0.0'
+        for i in range(rows_num):
+            if array2d[i][j] != '' and float(max) < float(array2d[i][j]):
+                max = array2d[i][j]
+        max_values.append(max)
+    return max_values
 
 
 def pack_empty_str(pid_count: int, array2d: List[List[str]]):
     for record in array2d:
         diff = pid_count - (len(record) - 1)  # array2d row : time + pids
         record.extend([''] * diff)
+
+
+def write_csv_file(pids: List[str], array2d: List[List[str]]):
+    pack_empty_str(len(pids), array2d)
+    max_values_per_pid: List[str] = create_max_value_per_pid(array2d)
+    max_order_indexes: List[int] = create_max_value_order(max_values_per_pid)
+
+    header = [''] + pids
+    array2d.append(['MAX:'] + max_values_per_pid)
+    with open('../output/top.csv', 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile, lineterminator='\n')
+        writer.writerow(header)
+        # writer.writerows(array2d)
+        for row in range(len(array2d)):
+            writer.writerow([array2d[row][index] for index in max_order_indexes])
 
 
 def add_time_and_value_array2d(time: str, pids: List[str], mem_dict: Dict, array2d: List[List[str]]):
@@ -64,7 +93,6 @@ def analyze_top_log_lines(lines: List[str]):
         if is_pid_value_block and len(line_columns) == PID_VALUE_COLUMN_COUNT:
             analyze_pid_value_line(line, pids, mem_dict)
     add_time_and_value_array2d(time, pids, mem_dict, time_mem_array2d)
-    pack_empty_str(len(pids), time_mem_array2d)
     write_csv_file(pids, time_mem_array2d)
 
 
@@ -75,10 +103,7 @@ def analyze_top_log(file_path: str):
 
 
 def main(args: List[str]):
-    file_paths = []
-    for i in range(len(args)):
-        if i != 0:
-            file_paths.append(sys.argv[i])
+    file_paths = [sys.argv[i] for i in range(len(args)) if i != 0]
     for file_path in file_paths:
         analyze_top_log(file_path)
 
