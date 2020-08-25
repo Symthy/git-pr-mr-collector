@@ -10,20 +10,52 @@ import csv
 import openpyxl
 from typing import List, Dict
 from openpyxl.chart import LineChart, Reference, Series
+import matplotlib.pyplot as plt
 
+# Fixed value
 PID_INDEX = 0
 CPU_INDEX = 8
 MEM_INDEX = 9
 COMMAND_INDEX = 11
 PID_VALUE_COLUMN_COUNT = 12
-FILTER_VALUE = 1.0
-RANK_TOP_LIMIT = 10
 EXCEL_OPTION = '--withExcel'
-OUTPUT_TOP_MEM_NAME = 'top_mem_result'
-OUTPUT_TOP_CPU_NAME = 'top_cpu_result'
+VIEW_GRAPH_OPTION = '--viewGraph'
+
+# Changeable values
+FILTER_VALUE = 1.0  # Output only values more than this value
+RANK_TOP_LIMIT = 5  # Maximum number of processes to output
+OUTPUT_TOP_MEM_NAME = 'top_memory_result'   # Output file name and graph title
+OUTPUT_TOP_CPU_NAME = 'top_cpu_result'      # Output file name and graph title
 
 
-def create_line_graph(sheet, rows_num: int):
+def view_line_graph(id: int, name: str, header: List[str], big_order_indexes: List[int], array2d: List[List[str]]):
+    times = [array2d[i][0] for i in range(len(array2d)) if i < len(array2d) - 1]
+    x_alias = [i for i in times[::int(len(times) / 10)]]
+    fig, axes = plt.subplots()
+    for col in range(len(big_order_indexes)):
+        if col == 0:
+            # skip because column 0 is time
+            continue
+        if col > RANK_TOP_LIMIT or col > len(big_order_indexes):
+            break
+        y_values = []
+        for row in range(len(array2d)):
+            if not row < len(array2d) - 1:
+                break
+            y_values.append(
+                float(array2d[row][big_order_indexes[col]]) if array2d[row][big_order_indexes[col]] != '' else None)
+        axes.plot(times, y_values, label=header[col])
+    axes.set_title(name)
+    axes.set_xlabel('Time')
+    axes.set_xticks(x_alias)
+    axes.set_ylabel('Use Rate [%]')
+    axes.set_ylim(0, 100)
+    axes.legend()
+    axes.grid()
+    plt.xticks(rotation=40)
+
+
+def create_excel_line_graph(sheet, rows_num: int):
     """
     Discription:
         undone function (Because can't check the operation in the developer environment).
@@ -39,8 +71,8 @@ def create_line_graph(sheet, rows_num: int):
     chart.width = 24
     chart.y_axis.scaling.min = 0
     chart.y_axis.scaling.max = 100
-    time_refs = openpyxl.chart.Reference(sheet, min_col=1, max_col=1, min_row=2, max_row=rows_num - 1)
-    pid_refs = openpyxl.chart.Reference(sheet, min_col=2, max_col=RANK_TOP_LIMIT, min_row=1, max_row=rows_num - 1)
+    time_refs = Reference(sheet, min_col=1, max_col=1, min_row=2, max_row=rows_num - 1)
+    pid_refs = Reference(sheet, min_col=2, max_col=RANK_TOP_LIMIT, min_row=1, max_row=rows_num - 1)
     chart.add_data(pid_refs, titles_from_data=True)
     chart.set_categories(time_refs)
     sheet.add_chart(chart, "A" + str(rows_num + 3))
@@ -64,7 +96,7 @@ def write_excel_file(filename, header, big_order_indexes, array2d):
     for row in range(len(array2d)):
         for col in range(len(big_order_indexes)):
             sheet.cell(row=row + 2, column=col + 1).value = array2d[row][big_order_indexes[col]]
-    create_line_graph(sheet, len(array2d))
+    create_excel_line_graph(sheet, len(array2d))
     wb.save('../output/' + filename + '.xlsx')
 
 
@@ -129,13 +161,15 @@ def pack_empty_str(pid_count: int, array2d: List[List[str]]):
         record.extend([''] * diff)
 
 
-def write_file(filename: str, pids: List[str], array2d: List[List[str]], is_output_excel: bool):
+def write_file_and_view_graph(id: int, name: str, pids: List[str], array2d: List[List[str]], is_output_excel: bool,
+                              is_view_graph: bool):
     """
 
-    :param filename:
+    :param name:
     :param pids:
     :param array2d:
     :param is_output_excel:
+    :param is_view_graph:
     :return: void
     """
     pack_empty_str(len(pids), array2d)
@@ -143,9 +177,11 @@ def write_file(filename: str, pids: List[str], array2d: List[List[str]], is_outp
     big_order_indexes: List[int] = create_max_value_order(max_values_per_pid)
     header = [''] + pids
     array2d.append(['MAX:'] + max_values_per_pid)
-    write_csv_file(filename, header, big_order_indexes, array2d)
+    write_csv_file(name, header, big_order_indexes, array2d)
     if is_output_excel:
-        write_excel_file(filename, header, big_order_indexes, array2d)
+        write_excel_file(name, header, big_order_indexes, array2d)
+    if is_view_graph:
+        view_line_graph(id, name, header, big_order_indexes, array2d)
 
 
 def add_time_and_value_array2d(time: str, pids: List[str], mem_dict: Dict, array2d: List[List[str]]):
@@ -235,7 +271,7 @@ def analyze_top_log_lines(lines: List[str], mem_pids: List[str], cpu_pids: List[
     add_time_and_mem_cpu_array2d(time, mem_pids, cpu_pids, mem_dict, cpu_dict, time_mem_array2d, time_cpu_array2d)
 
 
-def analyze_top_log(file_path: str, is_output_excel: bool):
+def analyze_top_log(file_path: str, is_output_excel: bool, is_view_graph: bool):
     """
 
     :param file_path:
@@ -249,8 +285,10 @@ def analyze_top_log(file_path: str, is_output_excel: bool):
     with open(file_path, 'r') as f:
         lines = f.readlines()
         analyze_top_log_lines(lines, mem_pids, cpu_pids, time_mem_array2d, time_cpu_array2d)
-    write_file(OUTPUT_TOP_MEM_NAME, mem_pids, time_mem_array2d, is_output_excel)
-    write_file(OUTPUT_TOP_CPU_NAME, cpu_pids, time_cpu_array2d, is_output_excel)
+    write_file_and_view_graph(0, OUTPUT_TOP_MEM_NAME, mem_pids, time_mem_array2d, is_output_excel, is_view_graph)
+    write_file_and_view_graph(1, OUTPUT_TOP_CPU_NAME, cpu_pids, time_cpu_array2d, is_output_excel, is_view_graph)
+    if is_view_graph:
+        plt.show()
 
 
 def main(args: List[str]):
@@ -260,11 +298,14 @@ def main(args: List[str]):
     :return: void
     """
     is_output_excel = False
+    is_view_graph = False
     if EXCEL_OPTION in args:
         is_output_excel = True
+    if VIEW_GRAPH_OPTION in args:
+        is_view_graph = True
     file_paths = glob.glob("../input/top_*.log")
     for file_path in file_paths:
-        analyze_top_log(file_path, is_output_excel)
+        analyze_top_log(file_path, is_output_excel, is_view_graph)
 
 
 main(sys.argv)
