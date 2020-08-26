@@ -2,15 +2,18 @@
 analyze top log and output csv file (row: time, column: process Id and command name)
     option:
         --withExcel : Output Excel File(include line graph) and csv file
+        --viewGraph : View line graph (memory use rate and cpu use rate)
 """
 
 import glob
+import re
 import sys
 import csv
 import openpyxl
+import matplotlib.pyplot as plt
 from typing import List, Dict
 from openpyxl.chart import LineChart, Reference, Series
-import matplotlib.pyplot as plt
+import datetime as dt
 
 # Fixed value
 PID_INDEX = 0
@@ -24,8 +27,8 @@ VIEW_GRAPH_OPTION = '--viewGraph'
 # Changeable values
 FILTER_VALUE = 1.0  # Output only values more than this value
 RANK_TOP_LIMIT = 5  # Maximum number of processes to output
-OUTPUT_TOP_MEM_NAME = 'top_memory_result'   # Output file name and graph title
-OUTPUT_TOP_CPU_NAME = 'top_cpu_result'      # Output file name and graph title
+OUTPUT_TOP_MEM_NAME = 'top_memory_result'  # Output file name and graph title
+OUTPUT_TOP_CPU_NAME = 'top_cpu_result'  # Output file name and graph title
 
 
 def view_line_graph(id: int, name: str, header: List[str], big_order_indexes: List[int], array2d: List[List[str]]):
@@ -52,7 +55,7 @@ def view_line_graph(id: int, name: str, header: List[str], big_order_indexes: Li
     axes.set_ylim(0, 100)
     axes.legend()
     axes.grid()
-    plt.xticks(rotation=40)
+    plt.xticks(rotation=30)
 
 
 def create_excel_line_graph(sheet, rows_num: int):
@@ -165,6 +168,7 @@ def write_file_and_view_graph(id: int, name: str, pids: List[str], array2d: List
                               is_view_graph: bool):
     """
 
+    :param id:
     :param name:
     :param pids:
     :param array2d:
@@ -184,29 +188,29 @@ def write_file_and_view_graph(id: int, name: str, pids: List[str], array2d: List
         view_line_graph(id, name, header, big_order_indexes, array2d)
 
 
-def add_time_and_value_array2d(time: str, pids: List[str], mem_dict: Dict, array2d: List[List[str]]):
+def add_time_and_value_array2d(datetime: str, pids: List[str], mem_dict: Dict, array2d: List[List[str]]):
     """
 
-    :param time:
+    :param datetime:
     :param pids:
     :param mem_dict:
     :param array2d:
     :return: void
     """
-    if time == '' or len(mem_dict) == 0:
+    if datetime == '' or len(mem_dict) == 0:
         return
     record: List[str] = [''] * (len(pids) + 1)
-    record[0] = time
+    record[0] = datetime
     for pid_key in mem_dict.keys():
         record[pids.index(pid_key) + 1] = mem_dict[pid_key]
-    array2d.append(record)  # array2d record : time + pids
+    array2d.append(record)  # array2d record : datetime + pids
 
 
-def add_time_and_mem_cpu_array2d(time: str, mem_pids: List[str], cpu_pids: List[str], mem_dict: Dict, cpu_dict: Dict,
-                                 time_mem_array2d: List[List[str]], time_cpu_array2d: List[List[str]]):
+def add_time_and_mem_cpu_array2d(datetime: str, mem_pids: List[str], cpu_pids: List[str], mem_dict: Dict,
+                                 cpu_dict: Dict, time_mem_array2d: List[List[str]], time_cpu_array2d: List[List[str]]):
     """
 
-    :param time:
+    :param datetime:
     :param mem_pids:
     :param cpu_pids:
     :param mem_dict:
@@ -215,8 +219,8 @@ def add_time_and_mem_cpu_array2d(time: str, mem_pids: List[str], cpu_pids: List[
     :param time_cpu_array2d:
     :return: void
     """
-    add_time_and_value_array2d(time, mem_pids, mem_dict, time_mem_array2d)
-    add_time_and_value_array2d(time, cpu_pids, cpu_dict, time_cpu_array2d)
+    add_time_and_value_array2d(datetime, mem_pids, mem_dict, time_mem_array2d)
+    add_time_and_value_array2d(datetime, cpu_pids, cpu_dict, time_cpu_array2d)
 
 
 def analyze_pid_value_line(line: str, pids: List[str], value_dict: Dict, value_index: int):
@@ -237,10 +241,35 @@ def analyze_pid_value_line(line: str, pids: List[str], value_dict: Dict, value_i
         value_dict[pid] = mem
 
 
-def analyze_top_log_lines(lines: List[str], mem_pids: List[str], cpu_pids: List[str], time_mem_array2d: List[List[str]],
-                          time_cpu_array2d: List[List[str]]):
+current_date: str = ''  # format is 'YYYY-mm-dd'
+is_zero_hour: bool = False
+
+
+def get_current_date_time(start_date: str, current_time: str):
     """
 
+    :param start_date: format is 'YYYYmmdd'
+    :param current_time: format is 'HH:MM:ss'
+    :return: current date and time
+    """
+    global current_date, is_zero_hour
+    if current_date == '':
+        current_date = dt.datetime.strptime(start_date, '%Y%m%d').strftime('%Y-%m-%d')
+        is_zero_hour = current_time.startswith('00:')
+    if is_zero_hour and current_time.startswith('01:'):
+        is_zero_hour = False
+    if not is_zero_hour and current_time.startswith('00:'):
+        is_zero_hour = True
+        dt_current_date = dt.datetime.strptime(current_date, '%Y-%m-%d') + dt.timedelta(days=1)
+        current_date = dt_current_date.strftime('%Y-%m-%d')
+    return current_date + ' ' + current_time
+
+
+def analyze_top_log_lines(start_date: str, lines: List[str], mem_pids: List[str], cpu_pids: List[str],
+                          time_mem_array2d: List[List[str]], time_cpu_array2d: List[List[str]]):
+    """
+
+    :param start_date:
     :param lines:
     :param mem_pids:
     :param cpu_pids:
@@ -255,8 +284,8 @@ def analyze_top_log_lines(lines: List[str], mem_pids: List[str], cpu_pids: List[
     for line in lines:
         line_columns = line.split();
         if line.startswith('top -'):
-            time = line_columns[2]
-            add_time_and_mem_cpu_array2d(time, mem_pids, cpu_pids, mem_dict, cpu_dict, time_mem_array2d,
+            datetime = get_current_date_time(start_date, line_columns[2])
+            add_time_and_mem_cpu_array2d(datetime, mem_pids, cpu_pids, mem_dict, cpu_dict, time_mem_array2d,
                                          time_cpu_array2d)
             is_pid_value_block = False
             mem_dict = {}
@@ -276,15 +305,17 @@ def analyze_top_log(file_path: str, is_output_excel: bool, is_view_graph: bool):
 
     :param file_path:
     :param is_output_excel:
+    :param is_view_graph:
     :return: void
     """
     mem_pids: List[str] = []
     cpu_pids: List[str] = []
     time_mem_array2d: List[List[str]] = []
     time_cpu_array2d: List[List[str]] = []
+    start_date = re.search(r'\d+', file_path).group()
     with open(file_path, 'r') as f:
         lines = f.readlines()
-        analyze_top_log_lines(lines, mem_pids, cpu_pids, time_mem_array2d, time_cpu_array2d)
+        analyze_top_log_lines(start_date, lines, mem_pids, cpu_pids, time_mem_array2d, time_cpu_array2d)
     write_file_and_view_graph(0, OUTPUT_TOP_MEM_NAME, mem_pids, time_mem_array2d, is_output_excel, is_view_graph)
     write_file_and_view_graph(1, OUTPUT_TOP_CPU_NAME, cpu_pids, time_cpu_array2d, is_output_excel, is_view_graph)
     if is_view_graph:
@@ -303,7 +334,7 @@ def main(args: List[str]):
         is_output_excel = True
     if VIEW_GRAPH_OPTION in args:
         is_view_graph = True
-    file_paths = glob.glob("../input/top_*.log")
+    file_paths: List[str] = glob.glob("../input/top_*.log")
     for file_path in file_paths:
         analyze_top_log(file_path, is_output_excel, is_view_graph)
 
