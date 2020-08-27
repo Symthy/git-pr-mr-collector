@@ -3,6 +3,8 @@ analyze top log and output csv file (row: time, column: process Id and command n
     option:
         --withExcel : Output Excel File(include line graph) and csv file
         --viewGraph : View line graph (memory use rate and cpu use rate)
+        --startTime "YYYY-mm-dd" : output start date time
+        --endTime "YYYY-mm-dd" : output end date time
 """
 
 import glob
@@ -11,7 +13,7 @@ import sys
 import csv
 import openpyxl
 import matplotlib.pyplot as plt
-from typing import List, Dict
+from typing import List, Dict, Optional
 from openpyxl.chart import LineChart, Reference, Series
 import datetime as dt
 
@@ -23,6 +25,8 @@ COMMAND_INDEX = 11
 PID_VALUE_COLUMN_COUNT = 12
 EXCEL_OPTION = '--withExcel'
 VIEW_GRAPH_OPTION = '--viewGraph'
+START_DATETIME_OPTION = '--startTime'
+END_DATETIME_OPTION = '--endTime'
 
 # Changeable values
 FILTER_VALUE = 1.0  # Output only values more than this value
@@ -31,7 +35,7 @@ OUTPUT_TOP_MEM_NAME = 'top_memory_result'  # Output file name and graph title
 OUTPUT_TOP_CPU_NAME = 'top_cpu_result'  # Output file name and graph title
 
 
-def view_line_graph(id: int, name: str, header: List[str], big_order_indexes: List[int], array2d: List[List[str]]):
+def view_line_graph(name: str, header: List[str], big_order_indexes: List[int], array2d: List[List[str]]):
     times = [array2d[i][0] for i in range(len(array2d)) if i < len(array2d) - 1]
     x_alias = [i for i in times[::int(len(times) / 10)]]
     fig, axes = plt.subplots()
@@ -138,16 +142,16 @@ def create_max_value_per_pid(array2d: List[List[str]]):
     :param array2d:
     :return: void
     """
-    rows_num: int = len(array2d)
-    columns_num: int = len(array2d[0])
+    rows_len: int = len(array2d)
+    columns_len: int = len(array2d[0])
     max_values: List[str] = []
-    for j in range(columns_num):
-        if j == 0:
+    for col in range(columns_len):
+        if col == 0:
             continue
         max = '0.0'
-        for i in range(rows_num):
-            if array2d[i][j] != '' and float(max) < float(array2d[i][j]):
-                max = array2d[i][j]
+        for row in range(rows_len):
+            if array2d[row][col] != '' and float(max) < float(array2d[row][col]):
+                max = array2d[row][col]
         max_values.append(max)
     return max_values
 
@@ -160,32 +164,60 @@ def pack_empty_str(pid_count: int, array2d: List[List[str]]):
     :return: void
     """
     for record in array2d:
-        diff = pid_count - (len(record) - 1)
+        diff = pid_count - len(record)
         record.extend([''] * diff)
 
 
-def write_file_and_view_graph(id: int, name: str, pids: List[str], array2d: List[List[str]], is_output_excel: bool,
+def write_file_and_view_graph(name: str, pids_header: List[str], array2d: List[List[str]], is_output_excel: bool,
                               is_view_graph: bool):
     """
 
-    :param id:
     :param name:
-    :param pids:
+    :param pids_header:
     :param array2d:
     :param is_output_excel:
     :param is_view_graph:
     :return: void
     """
-    pack_empty_str(len(pids), array2d)
     max_values_per_pid: List[str] = create_max_value_per_pid(array2d)
     big_order_indexes: List[int] = create_max_value_order(max_values_per_pid)
-    header = [''] + pids
     array2d.append(['MAX:'] + max_values_per_pid)
-    write_csv_file(name, header, big_order_indexes, array2d)
+    write_csv_file(name, pids_header, big_order_indexes, array2d)
     if is_output_excel:
-        write_excel_file(name, header, big_order_indexes, array2d)
+        write_excel_file(name, pids_header, big_order_indexes, array2d)
     if is_view_graph:
-        view_line_graph(id, name, header, big_order_indexes, array2d)
+        view_line_graph(name, pids_header, big_order_indexes, array2d)
+
+
+def except_out_of_start_to_end_filter_range(filter_start_time: Optional, filter_end_time: Optional,
+                                            pids: List[str], array2d: List[List[str]]):
+    """
+
+    :param filter_start_time:
+    :param filter_end_time:
+    :param pids:
+    :param array2d: 0 row is date time.
+    :return: void
+    """
+    if filter_start_time is None and filter_end_time is None:
+        return
+    # remove out of start to end range
+    for row in reversed(range(len(array2d)-1)):
+        date_time: dt = dt.datetime.strptime(array2d[row][0], '%Y-%m-%d %H:%M:%S')
+        if filter_start_time is not None and date_time < filter_start_time:
+            del(array2d[row])
+        if filter_end_time is not None and date_time > filter_end_time:
+            del(array2d[row])
+    # remove all empty column
+    for col in reversed(range(len(array2d[0])-1)):
+        is_empty_column = True
+        for row in range(len(array2d)):
+            if array2d[row][col] != '':
+                is_empty_column = False
+        if is_empty_column:
+            del (pids[col])
+            for row in range(len(array2d)):
+                del (array2d[row][col])
 
 
 def add_time_and_value_array2d(datetime: str, pids: List[str], mem_dict: Dict, array2d: List[List[str]]):
@@ -300,12 +332,15 @@ def analyze_top_log_lines(start_date: str, lines: List[str], mem_pids: List[str]
     add_time_and_mem_cpu_array2d(time, mem_pids, cpu_pids, mem_dict, cpu_dict, time_mem_array2d, time_cpu_array2d)
 
 
-def analyze_top_log(file_path: str, is_output_excel: bool, is_view_graph: bool):
+def analyze_top_log(file_path: str, is_output_excel: bool, is_view_graph: bool, filter_start_time: str,
+                    filter_end_time: str):
     """
 
     :param file_path:
     :param is_output_excel:
     :param is_view_graph:
+    :param filter_end_time:
+    :param filter_start_time:
     :return: void
     """
     mem_pids: List[str] = []
@@ -316,10 +351,34 @@ def analyze_top_log(file_path: str, is_output_excel: bool, is_view_graph: bool):
     with open(file_path, 'r') as f:
         lines = f.readlines()
         analyze_top_log_lines(start_date, lines, mem_pids, cpu_pids, time_mem_array2d, time_cpu_array2d)
-    write_file_and_view_graph(0, OUTPUT_TOP_MEM_NAME, mem_pids, time_mem_array2d, is_output_excel, is_view_graph)
-    write_file_and_view_graph(1, OUTPUT_TOP_CPU_NAME, cpu_pids, time_cpu_array2d, is_output_excel, is_view_graph)
+    mem_pids = [''] + mem_pids
+    cpu_pids = [''] + cpu_pids
+    pack_empty_str(len(mem_pids), time_mem_array2d)
+    pack_empty_str(len(cpu_pids), time_cpu_array2d)
+    except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, mem_pids, time_mem_array2d)
+    except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, cpu_pids, time_cpu_array2d)
+    write_file_and_view_graph(OUTPUT_TOP_MEM_NAME, mem_pids, time_mem_array2d, is_output_excel, is_view_graph)
+    write_file_and_view_graph(OUTPUT_TOP_CPU_NAME, cpu_pids, time_cpu_array2d, is_output_excel, is_view_graph)
     if is_view_graph:
         plt.show()
+
+
+def convert_date_time(option: str, args: List[str]):
+    """
+
+    :param option:
+    :param args:
+    :return:
+    """
+    if not option in args:
+        return None
+    index = args.index(option)
+    if len(args) > index:
+        filter_start_time = args[index + 1]
+        try:
+            return dt.datetime.strptime(filter_start_time, '%Y-%m-%d %H:%M:%S')
+        except Exception:
+            raise
 
 
 def main(args: List[str]):
@@ -330,13 +389,27 @@ def main(args: List[str]):
     """
     is_output_excel = False
     is_view_graph = False
+    filter_start_time: Optional = None
+    filter_end_time: Optional = None
     if EXCEL_OPTION in args:
         is_output_excel = True
     if VIEW_GRAPH_OPTION in args:
         is_view_graph = True
+    if START_DATETIME_OPTION in args:
+        try:
+            filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
+        except Exception:
+            print('invalid --startTime format (YYYY-mm-dd HH:MM:SS)')
+            raise
+    if END_DATETIME_OPTION in args:
+        try:
+            filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
+        except Exception:
+            print('invalid --endTime format (YYYY-mm-dd HH:MM:SS)')
+            raise
     file_paths: List[str] = glob.glob("../input/top_*.log")
     for file_path in file_paths:
-        analyze_top_log(file_path, is_output_excel, is_view_graph)
+        analyze_top_log(file_path, is_output_excel, is_view_graph, filter_start_time, filter_end_time)
 
 
 main(sys.argv)
