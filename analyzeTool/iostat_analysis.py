@@ -1,0 +1,152 @@
+import glob
+import sys
+import re
+import datetime as dt
+import matplotlib.pyplot as plt
+from typing import List, Optional, Dict
+
+
+R_PER_S_INDEX = 1  # r/s index
+W_PER_S_INDEX = 7  # w/s index
+DEV_PARTITION_NAME_INDEX = 0
+EXCEL_OPTION = '--withExcel'
+VIEW_GRAPH_OPTION = '--viewGraph'
+START_DATETIME_OPTION = '--startTime'
+END_DATETIME_OPTION = '--endTime'
+
+
+def view_line_graph(name: str, header: List[str], array2d: List[List[str]]):
+    """
+    Description:
+        create and view line graph by matplotlib.
+    :param name: graph name.
+    :param header: top line of output file. top line is '' and process id.
+    :param array2d: 2d array (row: date time, column: process). row 0 is date time.
+    :return: void
+    """
+    times = [array2d[i][0] for i in range(len(array2d))]
+    x_alias = [time for time in times[::int(len(times) / 10)]]
+    fig, axes = plt.subplots()
+    for col in range(len(array2d[0])):
+        if col == 0:
+            # skip because column 0 is time
+            continue
+        y_values = []
+        for row in range(len(array2d)):
+            y_values.append(float(array2d[row][col]) if array2d[row][col] != '' else None)
+        axes.plot(times, y_values, label=header[col])
+    axes.set_title(name)
+    axes.set_xlabel('Time')
+    axes.set_xticks(x_alias)
+    axes.set_ylabel('IOPS')
+    axes.legend()
+    axes.grid()
+    plt.xticks(rotation=30)
+
+
+def analyze_iostat_extend_dev_log_one_line(line_columns: List[str], dev_partition_names: List[str],
+                                           read_iops_dict: Dict, write_iops_dict: Dict,
+                                           is_got_dev_partition_name: bool):
+    dev_partition_name = line_columns[DEV_PARTITION_NAME_INDEX]
+    if not is_got_dev_partition_name:
+        dev_partition_names.append(dev_partition_name)
+    read_iops_dict[dev_partition_name] = line_columns[R_PER_S_INDEX]
+    write_iops_dict[dev_partition_name] = line_columns[W_PER_S_INDEX]
+
+
+def add_time_iops_array2d(date_time: str, dev_partition_names: List[str], iops_dict: Dict,
+                          iops_array2d: List[List[str]]):
+    if date_time == '':
+        return
+    record: List[str] = [''] * len(dev_partition_names)
+    for name in dev_partition_names:
+        record[dev_partition_names.index(name)] = iops_dict[name]
+    iops_array2d.append([date_time] + record)
+
+
+def get_date_time(line: str) -> str:
+    return dt.datetime.strptime(line[:-1], '%Y年%m月%d日 %H時%M分%S秒').strftime('%Y-%m-%d %H:%M:%S')
+
+
+def is_date_time_line(line: str) -> bool:
+    result = re.match(r'\d{4}年\d{2}月\d{2}日 \d{2}時\d{2}分\d{2}秒', line)
+    if result:
+        return True
+    return False
+
+
+def analyze_iostat_log_lines(lines: List[str], dev_partition_names: List[str], read_iops_array2d: List[List[str]],
+                             write_iops_array2d: List[List[str]]):
+    is_got_dev_partition_name = False
+    date_time: str = ''
+    read_iops_dict: Dict = {}
+    write_iops_dict: Dict = {}
+    one_block_line_count: int = 0
+    for line in lines:
+        if is_date_time_line(line):
+            add_time_iops_array2d(date_time, dev_partition_names, read_iops_dict, read_iops_array2d)
+            add_time_iops_array2d(date_time, dev_partition_names, write_iops_dict, write_iops_array2d)
+            if one_block_line_count != 0 and not is_got_dev_partition_name:
+                is_got_dev_partition_name = True
+            one_block_line_count = 0
+            date_time = get_date_time(line)
+            read_iops_dict = {}
+            write_iops_dict = {}
+            continue
+        line_columns = line.split()
+        if len(line_columns) == 21:
+            if one_block_line_count == 0:
+                one_block_line_count += 1
+                continue
+            analyze_iostat_extend_dev_log_one_line(line_columns, dev_partition_names, read_iops_dict, write_iops_dict,
+                                                   is_got_dev_partition_name)
+            one_block_line_count += 1
+
+    add_time_iops_array2d(date_time, dev_partition_names, read_iops_dict, read_iops_array2d)
+    add_time_iops_array2d(date_time, dev_partition_names, write_iops_dict, write_iops_array2d)
+
+
+def analyze_iostat_log(file_path, is_output_excel, is_view_graph, filter_start_time, filter_end_time):
+    dev_partition_names: List[str] = []
+    read_iops_array2d: List[List[str]] = []
+    write_iops_array2d: List[List[str]] = []
+    with open(file_path, 'r', encoding="utf-8_sig") as f:
+        lines = f.readlines()
+        analyze_iostat_log_lines(lines, dev_partition_names, read_iops_array2d, write_iops_array2d)
+    view_line_graph('Disk IO read (r_per_s)', [''] + dev_partition_names, read_iops_array2d)
+    view_line_graph('Disk IO write (w_per_s)', [''] + dev_partition_names, write_iops_array2d)
+    plt.show()
+
+
+def main(args: List[str]):
+    """
+
+    :param args: command line arguments
+    :return: void
+    """
+    is_output_excel = False
+    is_view_graph = False
+    filter_start_time: Optional = None
+    filter_end_time: Optional = None
+    # if EXCEL_OPTION in args:
+    #     is_output_excel = True
+    # if VIEW_GRAPH_OPTION in args:
+    #     is_view_graph = True
+    # if START_DATETIME_OPTION in args:
+    #     try:
+    #         filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
+    #     except Exception:
+    #         print('invalid --startTime format (YYYY-mm-dd HH:MM:SS)')
+    #         raise
+    # if END_DATETIME_OPTION in args:
+    #     try:
+    #         filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
+    #     except Exception:
+    #         print('invalid --endTime format (YYYY-mm-dd HH:MM:SS)')
+    #         raise
+    file_paths: List[str] = glob.glob("../input/iostat_x_dev_*.log")
+    for file_path in file_paths:
+        analyze_iostat_log(file_path, is_output_excel, is_view_graph, filter_start_time, filter_end_time)
+
+
+main(sys.argv)
