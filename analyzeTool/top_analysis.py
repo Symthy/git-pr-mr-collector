@@ -3,8 +3,8 @@ analyze top log and output csv file (row: time, column: process Id and command n
     option:
         --withExcel : Output Excel File(include line graph) and csv file
         --viewGraph : View line graph (memory use rate and cpu use rate)
-        --startTime "YYYY-mm-dd" : output start date time
-        --endTime "YYYY-mm-dd" : output end date time
+        --startTime "YYYY-mm-dd" : output start date time filter
+        --endTime "YYYY-mm-dd" : output end date time filter
 """
 
 import glob
@@ -36,6 +36,15 @@ OUTPUT_TOP_CPU_NAME = 'top_cpu_result'  # Output file name and graph title
 
 
 def view_line_graph(name: str, header: List[str], big_order_indexes: List[int], array2d: List[List[str]]):
+    """
+    Description:
+        create and view line graph by matplotlib.
+    :param name: graph name.
+    :param header: top line of output file. top line is '' and process id.
+    :param big_order_indexes: column(process id) index list in big order of max value per process id.
+    :param array2d: 2d array (row: date time, column: process). row 0 is date time.
+    :return: void
+    """
     times = [array2d[i][0] for i in range(len(array2d)) if i < len(array2d) - 1]
     x_alias = [i for i in times[::int(len(times) / 10)]]
     fig, axes = plt.subplots()
@@ -64,10 +73,11 @@ def view_line_graph(name: str, header: List[str], big_order_indexes: List[int], 
 
 def create_excel_line_graph(sheet, rows_num: int):
     """
-    Discription:
-        undone function (Because can't check the operation in the developer environment).
-    :param sheet:
-    :param rows_num:
+    Description:
+        Undone Function (Because can't check the operation in the developer environment).
+        create line graph in excel file.
+    :param sheet: excel sheet object.
+    :param rows_num: row count.
     :return: void
     """
     chart = openpyxl.chart.LineChart()
@@ -87,11 +97,12 @@ def create_excel_line_graph(sheet, rows_num: int):
 
 def write_excel_file(filename, header, big_order_indexes, array2d):
     """
-
-    :param filename:
-    :param header:
-    :param big_order_indexes:
-    :param array2d:
+    Description:
+        output excel file (row: date time, column: process)
+    :param filename: output file name.
+    :param header: top line of output file. top line is '' and process id.
+    :param big_order_indexes: column(process id) index list in big order of max value per process id.
+    :param array2d: 2d array (row: date time, column: process). row 0 is date time.
     :return: void
     """
     wb = openpyxl.Workbook()
@@ -107,13 +118,14 @@ def write_excel_file(filename, header, big_order_indexes, array2d):
     wb.save('../output/' + filename + '.xlsx')
 
 
-def write_csv_file(filename: str, header: List[str], max_order_indexes: List[int], array2d: List[List[str]]):
+def write_csv_file(filename: str, header: List[str], big_order_indexes: List[int], array2d: List[List[str]]):
     """
-
-    :param filename:
-    :param header:
-    :param max_order_indexes:
-    :param array2d:
+    Description:
+        output csv file (row: date time, column: process)
+    :param filename: output file name.
+    :param header: top line of output file. top line is '' and process id.
+    :param big_order_indexes: column(process id) index list in big order of max value per process id.
+    :param array2d: 2d array (row: date time, column: process). row 0 is date time.
     :return: void
     """
     with open('../output/' + filename + '.csv', 'w', newline='') as csvfile:
@@ -121,26 +133,29 @@ def write_csv_file(filename: str, header: List[str], max_order_indexes: List[int
         writer.writerow(header)
         # writer.writerows(array2d)
         for row in range(len(array2d)):
-            writer.writerow([array2d[row][index] for index in max_order_indexes])
+            writer.writerow([array2d[row][index] for index in big_order_indexes])
 
 
-def create_max_value_order(str_max_values: List[str]):
+def create_max_value_order(max_values_per_pid: List[str]) -> List[int]:
     """
-
-    :param str_max_values:
-    :return: Index list when sorted by maximum values per process id
+    Description:
+        create column(process id) index list in big order of max value.
+        index 0 is date time column.
+    :param max_values_per_pid: max value list per process id
+    :return: column(process id) index list in big order of max value per process id
     """
-    max_values: List[float] = list(map(lambda s: float(s), str_max_values))
+    max_values: List[float] = list(map(lambda s: float(s), max_values_per_pid))
     sorted_max_values = sorted(max_values, reverse=True)
     big_order_indexes: List[int] = [max_values.index(v) + 1 for v in sorted_max_values]
     return [0] + big_order_indexes
 
 
-def create_max_value_per_pid(array2d: List[List[str]]):
+def create_max_value_per_pid(array2d: List[List[str]]) -> List[str]:
     """
-
-    :param array2d:
-    :return: void
+    Description:
+        create max value list per process id.
+    :param array2d: 2d array (row: date time, column: process). row 0 is date time.
+    :return: max value list per process id.
     """
     rows_len: int = len(array2d)
     columns_len: int = len(array2d[0])
@@ -156,11 +171,12 @@ def create_max_value_per_pid(array2d: List[List[str]]):
     return max_values
 
 
-def pack_empty_str(pid_count: int, array2d: List[List[str]]):
+def fill_empty_string(pid_count: int, array2d: List[List[str]]):
     """
-
-    :param pid_count:
-    :param array2d:
+    Description:
+        fill empty string on each row of array2d. the number to fill is the number of missing columns.
+    :param pid_count: process id count.
+    :param array2d: 2d array (row: date time, column: process). 0 row is date time.
     :return: void
     """
     for record in array2d:
@@ -171,12 +187,13 @@ def pack_empty_str(pid_count: int, array2d: List[List[str]]):
 def write_file_and_view_graph(name: str, pids_header: List[str], array2d: List[List[str]], is_output_excel: bool,
                               is_view_graph: bool):
     """
-
-    :param name:
-    :param pids_header:
-    :param array2d:
-    :param is_output_excel:
-    :param is_view_graph:
+    Description:
+        output file and view graph.
+    :param name: file name and graph name
+    :param pids_header: list of process id. index 0 is ''.
+    :param array2d: 2d array (row: date time, column: process). 0 row is date time.
+    :param is_output_excel: output excel file flag.
+    :param is_view_graph: view line graph flag.
     :return: void
     """
     max_values_per_pid: List[str] = create_max_value_per_pid(array2d)
@@ -190,98 +207,107 @@ def write_file_and_view_graph(name: str, pids_header: List[str], array2d: List[L
 
 
 def except_out_of_start_to_end_filter_range(filter_start_time: Optional, filter_end_time: Optional,
-                                            pids: List[str], array2d: List[List[str]]):
+                                            pids_header: List[str], array2d: List[List[str]]):
     """
-
-    :param filter_start_time:
-    :param filter_end_time:
-    :param pids:
+    Description:
+        except out of start date time to end date time range
+    :param filter_start_time: output to start date time.
+    :param filter_end_time: output to end date time.
+    :param pids_header: process id list. first is ''.
     :param array2d: 0 row is date time.
     :return: void
     """
     if filter_start_time is None and filter_end_time is None:
         return
     # remove out of start to end range
-    for row in reversed(range(len(array2d)-1)):
+    for row in reversed(range(len(array2d) - 1)):
         date_time: dt = dt.datetime.strptime(array2d[row][0], '%Y-%m-%d %H:%M:%S')
         if filter_start_time is not None and date_time < filter_start_time:
-            del(array2d[row])
+            del (array2d[row])
         if filter_end_time is not None and date_time > filter_end_time:
-            del(array2d[row])
+            del (array2d[row])
     # remove all empty column
-    for col in reversed(range(len(array2d[0])-1)):
+    delete_column_indexes = []
+    for col in reversed(range(len(array2d[0]) - 1)):
         is_empty_column = True
         for row in range(len(array2d)):
             if array2d[row][col] != '':
                 is_empty_column = False
+                break
         if is_empty_column:
-            del (pids[col])
-            for row in range(len(array2d)):
-                del (array2d[row][col])
+            delete_column_indexes.append(col)
+    for col in delete_column_indexes:
+        del (pids_header[col])
+        for row in reversed(range(len(array2d) - 1)):
+            del (array2d[row][col])
 
 
-def add_time_and_value_array2d(datetime: str, pids: List[str], mem_dict: Dict, array2d: List[List[str]]):
+def add_time_and_value_array2d(datetime: str, pids: List[str], value_dict: Dict, array2d: List[List[str]]):
     """
-
-    :param datetime:
-    :param pids:
-    :param mem_dict:
-    :param array2d:
+    Discription:
+        add date time and value to 2d array.
+    :param datetime: current date and time of log one line.
+    :param pids: list of process id.
+    :param value_dict: map of process id and value.
+    :param array2d: 2d array (row: date time, column: process). 0 row is date time.
     :return: void
     """
-    if datetime == '' or len(mem_dict) == 0:
+    if datetime == '':
         return
     record: List[str] = [''] * (len(pids) + 1)
     record[0] = datetime
-    for pid_key in mem_dict.keys():
-        record[pids.index(pid_key) + 1] = mem_dict[pid_key]
+    for pid_key in value_dict.keys():
+        record[pids.index(pid_key) + 1] = value_dict[pid_key]
     array2d.append(record)  # array2d record : datetime + pids
 
 
 def add_time_and_mem_cpu_array2d(datetime: str, mem_pids: List[str], cpu_pids: List[str], mem_dict: Dict,
                                  cpu_dict: Dict, time_mem_array2d: List[List[str]], time_cpu_array2d: List[List[str]]):
     """
-
-    :param datetime:
-    :param mem_pids:
-    :param cpu_pids:
-    :param mem_dict:
-    :param cpu_dict:
-    :param time_mem_array2d:
-    :param time_cpu_array2d:
+    Description:
+        add date time and value (memory use rate or cpu use rate) to 2d array.
+    :param datetime: current date and time of log one line.
+    :param mem_pids: list of process id (for memory use rate).
+    :param cpu_pids: list of process id (for cpu use rate).
+    :param mem_dict: map of process id and memory use rate.
+    :param cpu_dict:  map of process id and cpu use rate.
+    :param time_mem_array2d: 2d array of memory use rate (row: date time, column: process). 0 row is date time.
+    :param time_cpu_array2d: 2d array of cpu use rate (row: date time, column: process). 0 row is date time.
     :return: void
     """
     add_time_and_value_array2d(datetime, mem_pids, mem_dict, time_mem_array2d)
     add_time_and_value_array2d(datetime, cpu_pids, cpu_dict, time_cpu_array2d)
 
 
-def analyze_pid_value_line(line: str, pids: List[str], value_dict: Dict, value_index: int):
+def analyze_pid_value_line(line: str, pids: List[str], value_dict: Dict, target_index: int):
     """
-
-    :param line:
-    :param pids:
-    :param value_dict:
-    :param value_index:
+    Description:
+        analyze one line of process information.
+    :param line: log line.
+    :param pids: list of process id.
+    :param value_dict: map of process id and value.
+    :param target_index: index of target value in log line.
     :return: void
     """
     line_columns: List[str] = line.split()
     pid: str = line_columns[PID_INDEX] + '(' + line_columns[COMMAND_INDEX] + ')'
-    mem: str = line_columns[value_index]
-    if float(mem) >= FILTER_VALUE:
+    value: str = line_columns[target_index]
+    if float(value) >= FILTER_VALUE:
         if pid not in pids:
             pids.append(pid)
-        value_dict[pid] = mem
+        value_dict[pid] = value
 
 
 current_date: str = ''  # format is 'YYYY-mm-dd'
 is_zero_hour: bool = False
 
 
-def get_current_date_time(start_date: str, current_time: str):
+def get_current_date_time(start_date: str, current_time: str) -> str:
     """
-
-    :param start_date: format is 'YYYYmmdd'
-    :param current_time: format is 'HH:MM:ss'
+    Description:
+        create current date time of target log line
+    :param start_date: log start date. format is 'YYYYmmdd'
+    :param current_time: current time of target log line. format is 'HH:MM:ss'
     :return: current date and time
     """
     global current_date, is_zero_hour
@@ -300,13 +326,14 @@ def get_current_date_time(start_date: str, current_time: str):
 def analyze_top_log_lines(start_date: str, lines: List[str], mem_pids: List[str], cpu_pids: List[str],
                           time_mem_array2d: List[List[str]], time_cpu_array2d: List[List[str]]):
     """
-
-    :param start_date:
-    :param lines:
-    :param mem_pids:
-    :param cpu_pids:
-    :param time_mem_array2d:
-    :param time_cpu_array2d:
+    Description:
+        analyze top log lines. create 2d array memory use rate and cpu use rate.
+    :param start_date: log start date.
+    :param lines: log file lines.
+    :param mem_pids: list of memory use rate per process.
+    :param cpu_pids: list of cpu use rate per process.
+    :param time_mem_array2d: 2d array (row: date time, column: process). 0 row is date time.
+    :param time_cpu_array2d: 2d array (row: date time, column: process). 0 row is date time.
     :return: void
     """
     is_pid_value_block = False
@@ -332,8 +359,8 @@ def analyze_top_log_lines(start_date: str, lines: List[str], mem_pids: List[str]
     add_time_and_mem_cpu_array2d(time, mem_pids, cpu_pids, mem_dict, cpu_dict, time_mem_array2d, time_cpu_array2d)
 
 
-def analyze_top_log(file_path: str, is_output_excel: bool, is_view_graph: bool, filter_start_time: str,
-                    filter_end_time: str):
+def analyze_top_log(file_path: str, is_output_excel: bool, is_view_graph: bool, filter_start_time: dt,
+                    filter_end_time: dt):
     """
 
     :param file_path:
@@ -353,8 +380,8 @@ def analyze_top_log(file_path: str, is_output_excel: bool, is_view_graph: bool, 
         analyze_top_log_lines(start_date, lines, mem_pids, cpu_pids, time_mem_array2d, time_cpu_array2d)
     mem_pids = [''] + mem_pids
     cpu_pids = [''] + cpu_pids
-    pack_empty_str(len(mem_pids), time_mem_array2d)
-    pack_empty_str(len(cpu_pids), time_cpu_array2d)
+    fill_empty_string(len(mem_pids), time_mem_array2d)
+    fill_empty_string(len(cpu_pids), time_cpu_array2d)
     except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, mem_pids, time_mem_array2d)
     except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, cpu_pids, time_cpu_array2d)
     write_file_and_view_graph(OUTPUT_TOP_MEM_NAME, mem_pids, time_mem_array2d, is_output_excel, is_view_graph)
@@ -366,9 +393,9 @@ def analyze_top_log(file_path: str, is_output_excel: bool, is_view_graph: bool, 
 def convert_date_time(option: str, args: List[str]):
     """
 
-    :param option:
-    :param args:
-    :return:
+    :param option: option name
+    :param args: command line arguments
+    :return: void
     """
     if not option in args:
         return None
@@ -384,7 +411,7 @@ def convert_date_time(option: str, args: List[str]):
 def main(args: List[str]):
     """
 
-    :param args:
+    :param args: command line arguments
     :return: void
     """
     is_output_excel = False
