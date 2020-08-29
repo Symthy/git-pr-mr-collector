@@ -1,14 +1,16 @@
-import glob
-import sys
-import re
 import datetime as dt
+import glob
+import re
+import sys
 import matplotlib.pyplot as plt
 from typing import List, Optional, Dict
-
+from analyzeTool.analysis_util import convert_date_time, except_out_of_start_to_end_filter_range, write_csv_file
 
 R_PER_S_INDEX = 1  # r/s index
 W_PER_S_INDEX = 7  # w/s index
-DEV_PARTITION_NAME_INDEX = 0
+DEV_PARTITION_NAME_INDEX = 0    # Device Partition Name index
+IOSTAT_READ_IO_FILE_NAME = 'iostat_read_result'
+IOSTAT_WRITE_IO_FILE_NAME = 'iostat_write_result'
 EXCEL_OPTION = '--withExcel'
 VIEW_GRAPH_OPTION = '--viewGraph'
 START_DATETIME_OPTION = '--startTime'
@@ -101,7 +103,6 @@ def analyze_iostat_log_lines(lines: List[str], dev_partition_names: List[str], r
             analyze_iostat_extend_dev_log_one_line(line_columns, dev_partition_names, read_iops_dict, write_iops_dict,
                                                    is_got_dev_partition_name)
             one_block_line_count += 1
-
     add_time_iops_array2d(date_time, dev_partition_names, read_iops_dict, read_iops_array2d)
     add_time_iops_array2d(date_time, dev_partition_names, write_iops_dict, write_iops_array2d)
 
@@ -113,8 +114,13 @@ def analyze_iostat_log(file_path, is_output_excel, is_view_graph, filter_start_t
     with open(file_path, 'r', encoding="utf-8_sig") as f:
         lines = f.readlines()
         analyze_iostat_log_lines(lines, dev_partition_names, read_iops_array2d, write_iops_array2d)
-    view_line_graph('Disk IO read (r_per_s)', [''] + dev_partition_names, read_iops_array2d)
-    view_line_graph('Disk IO write (w_per_s)', [''] + dev_partition_names, write_iops_array2d)
+    dev_partition_names = [''] + dev_partition_names
+    except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, dev_partition_names, read_iops_array2d)
+    except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, dev_partition_names, write_iops_array2d)
+    write_csv_file(IOSTAT_READ_IO_FILE_NAME, dev_partition_names, read_iops_array2d)
+    write_csv_file(IOSTAT_WRITE_IO_FILE_NAME, dev_partition_names, write_iops_array2d)
+    view_line_graph('Disk IO read (r/s)', dev_partition_names, read_iops_array2d)
+    view_line_graph('Disk IO write (w/s)', dev_partition_names, write_iops_array2d)
     plt.show()
 
 
@@ -132,18 +138,18 @@ def main(args: List[str]):
     #     is_output_excel = True
     # if VIEW_GRAPH_OPTION in args:
     #     is_view_graph = True
-    # if START_DATETIME_OPTION in args:
-    #     try:
-    #         filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
-    #     except Exception:
-    #         print('invalid --startTime format (YYYY-mm-dd HH:MM:SS)')
-    #         raise
-    # if END_DATETIME_OPTION in args:
-    #     try:
-    #         filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
-    #     except Exception:
-    #         print('invalid --endTime format (YYYY-mm-dd HH:MM:SS)')
-    #         raise
+    if START_DATETIME_OPTION in args:
+        try:
+            filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
+        except Exception:
+            print('invalid --startTime format (YYYY-mm-dd HH:MM:SS)')
+            raise
+    if END_DATETIME_OPTION in args:
+        try:
+            filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
+        except Exception:
+            print('invalid --endTime format (YYYY-mm-dd HH:MM:SS)')
+            raise
     file_paths: List[str] = glob.glob("../input/iostat_x_dev_*.log")
     for file_path in file_paths:
         analyze_iostat_log(file_path, is_output_excel, is_view_graph, filter_start_time, filter_end_time)
