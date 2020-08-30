@@ -5,7 +5,7 @@ import sys
 import matplotlib.pyplot as plt
 from typing import List, Optional, Dict
 from analyzeTool.analysis_util import convert_date_time, except_out_of_start_to_end_filter_range, write_csv_file, \
-    create_max_value_row
+    create_max_value_row, create_average_value_row
 
 R_PER_S_INDEX = 1  # r/s index
 W_PER_S_INDEX = 7  # w/s index
@@ -27,7 +27,8 @@ def view_line_graph(dev_partition_names: List[str], read_iops_array2d: List[List
     :param write_iops_array2d: 2d array (row: date time, column: process). row 0 is date time.
     :return: void
     """
-    def plot_graph(ax, graph_title:str, header: List[str], array2d: List[List[str]]):
+
+    def plot_graph(ax, graph_title: str, header: List[str], array2d: List[List[str]]):
         times = [array2d[i][0] for i in range(len(array2d))]
         x_alias = [time for time in times[::int(len(times) / 10)]]
         for col in range(len(array2d[0])):
@@ -45,6 +46,7 @@ def view_line_graph(dev_partition_names: List[str], read_iops_array2d: List[List
         ax.set_ylabel('IOPS')
         ax.legend()
         ax.grid()
+
     fig, (ax_top, ax_under) = plt.subplots(nrows=2, ncols=1, sharex=False)
     plot_graph(ax_top, 'Disk IO read (r/s)', dev_partition_names, read_iops_array2d)
     plot_graph(ax_under, 'Disk IO write (w/s)', dev_partition_names, write_iops_array2d)
@@ -123,10 +125,10 @@ def analyze_iostat_log(file_path, is_output_excel, is_view_graph, filter_start_t
     except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, dev_partition_names, read_iops_array2d)
     except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, dev_partition_names, write_iops_array2d)
     view_line_graph(dev_partition_names, read_iops_array2d, write_iops_array2d)
-    read_iops_max_values_row = ['MAX:'] + create_max_value_row(read_iops_array2d)
-    read_iops_array2d.append(read_iops_max_values_row)
-    write_iops_max_values_row = ['MAX:'] + create_max_value_row(write_iops_array2d)
-    write_iops_array2d.append(write_iops_max_values_row)
+    read_iops_array2d.append(['MAX:'] + create_max_value_row(read_iops_array2d))
+    read_iops_array2d.append(['AVG:'] + create_average_value_row(read_iops_array2d))
+    write_iops_array2d.append(['MAX:'] + create_max_value_row(write_iops_array2d))
+    write_iops_array2d.append(['AVG:'] + create_average_value_row(write_iops_array2d))
     write_csv_file(IOSTAT_READ_IO_FILE_NAME, dev_partition_names, read_iops_array2d)
     write_csv_file(IOSTAT_WRITE_IO_FILE_NAME, dev_partition_names, write_iops_array2d)
     plt.show()

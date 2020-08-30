@@ -3,7 +3,7 @@ import sys
 import matplotlib.pyplot as plt
 from typing import Optional, List
 from analyzeTool.analysis_util import convert_date_time, write_csv_file, except_out_of_start_to_end_filter_range, \
-    create_max_value_row
+    create_max_value_row, create_average_value_row
 
 GET_PARAM_NAME_START_INDEX = 3
 AVAILABLE_NAME_INDEX = 7
@@ -23,6 +23,7 @@ def view_line_graph(title: str, total: int, header: List[str], array2d: List[Lis
     """
     Description:
         create and view line graph by matplotlib.
+    :param total: memory total value
     :param title: graph title.
     :param header: top line of output file. top line is '' and process id.
     :param array2d: 2d array (row: date time, column: process). row 0 is date time.
@@ -79,6 +80,7 @@ def analyze_free_log(file_path, is_output_excel, filter_start_time, filter_end_t
     except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, param_names, free_array2d)
     view_line_graph('Free Memory', total, param_names, free_array2d)
     free_array2d.append(['MAX:'] + create_max_value_row(free_array2d))
+    free_array2d.append(['AVG:'] + create_average_value_row(free_array2d))
     write_csv_file(OUTPUT_FILE_NAME, param_names, free_array2d)
     plt.show()
 

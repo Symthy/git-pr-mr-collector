@@ -17,7 +17,7 @@ from openpyxl.chart import LineChart, Reference, Series
 import datetime as dt
 
 # Fixed value
-from analyzeTool.analysis_util import create_max_value_row, convert_date_time
+from analyzeTool.analysis_util import create_max_value_row, convert_date_time, create_average_value_row
 
 PID_INDEX = 0
 CPU_INDEX = 8
@@ -178,9 +178,10 @@ def write_file_and_view_graph(name: str, pids_header: List[str], array2d: List[L
     """
     max_values_per_pid: List[str] = create_max_value_row(array2d)
     big_order_indexes: List[int] = create_max_value_order(max_values_per_pid)
-    write_csv_file(name, pids_header, big_order_indexes, array2d)
     view_line_graph(name, pids_header, big_order_indexes, array2d)
     array2d.append(['MAX:'] + max_values_per_pid)
+    array2d.append(['AVG:'] + create_average_value_row(array2d))
+    write_csv_file(name, pids_header, big_order_indexes, array2d)
     if is_output_excel:
         write_excel_file(name, pids_header, big_order_indexes, array2d)
 
@@ -200,7 +201,7 @@ def except_out_of_start_to_end_filter_range(filter_start_time: Optional, filter_
         return
     # remove out of start to end range
     for row in reversed(range(len(array2d) - 1)):
-        date_time: dt = dt.datetime.strptime(array2d[row][0], '%Y-%m-%d %H:%M:%S')
+        date_time: dt = dt.datetime.strptime(array2d[row][0], '%Y/%m/%d %H:%M:%S')
         if filter_start_time is not None and date_time < filter_start_time:
             del (array2d[row])
         if filter_end_time is not None and date_time > filter_end_time:

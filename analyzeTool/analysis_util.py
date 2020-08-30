@@ -76,9 +76,9 @@ def except_out_of_start_to_end_filter_range(filter_start_time: Optional, filter_
 def create_max_value_row(array2d: List[List[str]]) -> List[str]:
     """
     Description:
-        create max value list per process id.
+        create max value list per column.
     :param array2d: 2d array (row: date time, column: process). row 0 is date time.
-    :return: max value list per process id.
+    :return: max value list per column.
     """
     rows_len: int = len(array2d)
     columns_len: int = len(array2d[0])
@@ -92,3 +92,24 @@ def create_max_value_row(array2d: List[List[str]]) -> List[str]:
                 max = array2d[row][col]
         max_values.append(max)
     return max_values
+
+
+def create_average_value_row(array2d: List[List[str]]) -> List[str]:
+    """
+    Description:
+        create average value list per column.
+    :param array2d: 2d array (row: date time, column: process). row 0 is date time.
+    :return: average value list per column.
+    """
+    rows_len: int = len(array2d)
+    columns_len: int = len(array2d[0])
+    average_values: List[str] = []
+    for col in range(columns_len):
+        if col == 0:
+            continue
+        total = 0.0
+        for row in range(rows_len):
+            if array2d[row][col] != '':
+                total += float(array2d[row][col])
+        average_values.append(str(total / rows_len))
+    return average_values

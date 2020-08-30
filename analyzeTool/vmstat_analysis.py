@@ -1,0 +1,73 @@
+import glob
+import sys
+from typing import Optional, List
+
+from analyzeTool.analysis_util import convert_date_time, except_out_of_start_to_end_filter_range, write_csv_file, \
+    create_max_value_row, create_average_value_row
+
+START_DATETIME_OPTION = '--startTime'
+END_DATETIME_OPTION = '--endTime'
+OUTPUT_FILE_NAME = 'vmstat_result'
+DATE_INDEX = 0
+TIME_INDEX = 1
+PROCESS_RUN_INDEX = 2
+MEMORY_FREE_INDEX = 5
+IO_BLOCK_IN_INDEX = 10
+IO_BLOCK_OUT_INDEX = 11
+CPU_USE_INDEX = 14
+LOG_START_LINE = 2
+LOG_LINE_INCREMENT = 3
+HEADER_LABELS = ['proc_run', 'mem_free', 'io_bi', 'io_bo', 'cpu_use']
+
+
+def analyze_vmstat_log_lines(lines: List[str], array2d: List[List[str]]):
+    line_counter: int = LOG_START_LINE
+    while line_counter < len(lines):
+        line_columns: List[str] = lines[line_counter].split()
+        array2d.append(
+            [line_columns[DATE_INDEX] + ' ' + line_columns[TIME_INDEX]] + [line_columns[PROCESS_RUN_INDEX]] + [
+                line_columns[MEMORY_FREE_INDEX]] + [line_columns[IO_BLOCK_IN_INDEX]] + [
+                line_columns[IO_BLOCK_OUT_INDEX]] + [line_columns[CPU_USE_INDEX]])
+        line_counter += LOG_LINE_INCREMENT
+
+
+def analyze_vmstat_log(file_path: str, is_output_excel: bool, filter_start_time: Optional, filter_end_time: Optional):
+    vmstat_array2d: List[List[str]] = []
+    with open(file_path, 'r', encoding="utf-8_sig") as f:
+        lines = f.readlines()
+    analyze_vmstat_log_lines(lines, vmstat_array2d)
+    header_labels = [''] + HEADER_LABELS
+    except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, header_labels, vmstat_array2d)
+    vmstat_array2d.append(['MAX:'] + create_max_value_row(vmstat_array2d))
+    vmstat_array2d.append(['AVG:'] + create_average_value_row(vmstat_array2d))
+    write_csv_file(OUTPUT_FILE_NAME, header_labels, vmstat_array2d)
+
+
+def main(args: List[str]):
+    """
+
+    :param args: command line arguments
+    :return: void
+    """
+    is_output_excel = False
+    is_view_graph = False
+    filter_start_time: Optional = None
+    filter_end_time: Optional = None
+    if START_DATETIME_OPTION in args:
+        try:
+            filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
+        except Exception:
+            print('invalid --startTime format (YYYY-mm-dd HH:MM:SS)')
+            raise
+    if END_DATETIME_OPTION in args:
+        try:
+            filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
+        except Exception:
+            print('invalid --endTime format (YYYY-mm-dd HH:MM:SS)')
+            raise
+    file_paths: List[str] = glob.glob("../input/vmstat_*.log")
+    for file_path in file_paths:
+        analyze_vmstat_log(file_path, is_output_excel, filter_start_time, filter_end_time)
+
+
+main(sys.argv)
