@@ -70,3 +70,24 @@ def except_out_of_start_to_end_filter_range(filter_start_time: Optional, filter_
         del (pids_header[col])
         for row in reversed(range(len(array2d))):
             del (array2d[row][col])
+
+
+def create_max_value_row(array2d: List[List[str]]) -> List[str]:
+    """
+    Description:
+        create max value list per process id.
+    :param array2d: 2d array (row: date time, column: process). row 0 is date time.
+    :return: max value list per process id.
+    """
+    rows_len: int = len(array2d)
+    columns_len: int = len(array2d[0])
+    max_values: List[str] = []
+    for col in range(columns_len):
+        if col == 0:
+            continue
+        max = '0.0'
+        for row in range(rows_len):
+            if array2d[row][col] != '' and float(max) < float(array2d[row][col]):
+                max = array2d[row][col]
+        max_values.append(max)
+    return max_values

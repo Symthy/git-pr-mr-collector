@@ -2,7 +2,6 @@
 analyze top log and output csv file (row: time, column: process Id and command name)
     option:
         --withExcel : Output Excel File(include line graph) and csv file
-        --viewGraph : View line graph (memory use rate and cpu use rate)
         --startTime "YYYY-mm-dd" : output start date time filter
         --endTime "YYYY-mm-dd" : output end date time filter
 """
@@ -18,6 +17,8 @@ from openpyxl.chart import LineChart, Reference, Series
 import datetime as dt
 
 # Fixed value
+from analyzeTool.analysis_util import create_max_value_row
+
 PID_INDEX = 0
 CPU_INDEX = 8
 MEM_INDEX = 9
@@ -45,7 +46,7 @@ def view_line_graph(name: str, header: List[str], big_order_indexes: List[int], 
     :param array2d: 2d array (row: date time, column: process). row 0 is date time.
     :return: void
     """
-    times = [array2d[i][0] for i in range(len(array2d)) if i < len(array2d) - 1]
+    times = [array2d[i][0] for i in range(len(array2d)) if i < len(array2d)]
     x_alias = [i for i in times[::int(len(times) / 10)]]
     fig, axes = plt.subplots()
     for col in range(len(big_order_indexes)):
@@ -56,7 +57,7 @@ def view_line_graph(name: str, header: List[str], big_order_indexes: List[int], 
             break
         y_values = []
         for row in range(len(array2d)):
-            if not row < len(array2d) - 1:
+            if not row < len(array2d):
                 break
             y_values.append(
                 float(array2d[row][big_order_indexes[col]]) if array2d[row][big_order_indexes[col]] != '' else None)
@@ -150,27 +151,6 @@ def create_max_value_order(max_values_per_pid: List[str]) -> List[int]:
     return [0] + big_order_indexes
 
 
-def create_max_value_per_pid(array2d: List[List[str]]) -> List[str]:
-    """
-    Description:
-        create max value list per process id.
-    :param array2d: 2d array (row: date time, column: process). row 0 is date time.
-    :return: max value list per process id.
-    """
-    rows_len: int = len(array2d)
-    columns_len: int = len(array2d[0])
-    max_values: List[str] = []
-    for col in range(columns_len):
-        if col == 0:
-            continue
-        max = '0.0'
-        for row in range(rows_len):
-            if array2d[row][col] != '' and float(max) < float(array2d[row][col]):
-                max = array2d[row][col]
-        max_values.append(max)
-    return max_values
-
-
 def fill_empty_string(pid_count: int, array2d: List[List[str]]):
     """
     Description:
@@ -196,14 +176,13 @@ def write_file_and_view_graph(name: str, pids_header: List[str], array2d: List[L
     :param is_view_graph: view line graph flag.
     :return: void
     """
-    max_values_per_pid: List[str] = create_max_value_per_pid(array2d)
+    max_values_per_pid: List[str] = create_max_value_row(array2d)
     big_order_indexes: List[int] = create_max_value_order(max_values_per_pid)
-    array2d.append(['MAX:'] + max_values_per_pid)
     write_csv_file(name, pids_header, big_order_indexes, array2d)
+    view_line_graph(name, pids_header, big_order_indexes, array2d)
+    array2d.append(['MAX:'] + max_values_per_pid)
     if is_output_excel:
         write_excel_file(name, pids_header, big_order_indexes, array2d)
-    if is_view_graph:
-        view_line_graph(name, pids_header, big_order_indexes, array2d)
 
 
 def except_out_of_start_to_end_filter_range(filter_start_time: Optional, filter_end_time: Optional,
@@ -386,8 +365,7 @@ def analyze_top_log(file_path: str, is_output_excel: bool, is_view_graph: bool, 
     except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, cpu_pids, time_cpu_array2d)
     write_file_and_view_graph(OUTPUT_TOP_MEM_NAME, mem_pids, time_mem_array2d, is_output_excel, is_view_graph)
     write_file_and_view_graph(OUTPUT_TOP_CPU_NAME, cpu_pids, time_cpu_array2d, is_output_excel, is_view_graph)
-    if is_view_graph:
-        plt.show()
+    plt.show()
 
 
 def convert_date_time(option: str, args: List[str]):
@@ -420,8 +398,6 @@ def main(args: List[str]):
     filter_end_time: Optional = None
     if EXCEL_OPTION in args:
         is_output_excel = True
-    if VIEW_GRAPH_OPTION in args:
-        is_view_graph = True
     if START_DATETIME_OPTION in args:
         try:
             filter_start_time = convert_date_time(START_DATETIME_OPTION, args)

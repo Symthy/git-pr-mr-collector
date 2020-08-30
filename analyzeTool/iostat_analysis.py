@@ -4,7 +4,8 @@ import re
 import sys
 import matplotlib.pyplot as plt
 from typing import List, Optional, Dict
-from analyzeTool.analysis_util import convert_date_time, except_out_of_start_to_end_filter_range, write_csv_file
+from analyzeTool.analysis_util import convert_date_time, except_out_of_start_to_end_filter_range, write_csv_file, \
+    create_max_value_row
 
 R_PER_S_INDEX = 1  # r/s index
 W_PER_S_INDEX = 7  # w/s index
@@ -117,10 +118,14 @@ def analyze_iostat_log(file_path, is_output_excel, is_view_graph, filter_start_t
     dev_partition_names = [''] + dev_partition_names
     except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, dev_partition_names, read_iops_array2d)
     except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, dev_partition_names, write_iops_array2d)
-    write_csv_file(IOSTAT_READ_IO_FILE_NAME, dev_partition_names, read_iops_array2d)
-    write_csv_file(IOSTAT_WRITE_IO_FILE_NAME, dev_partition_names, write_iops_array2d)
     view_line_graph('Disk IO read (r/s)', dev_partition_names, read_iops_array2d)
     view_line_graph('Disk IO write (w/s)', dev_partition_names, write_iops_array2d)
+    read_iops_max_values_row = ['MAX:'] + create_max_value_row(read_iops_array2d)
+    read_iops_array2d.append(read_iops_max_values_row)
+    write_iops_max_values_row = ['MAX:'] + create_max_value_row(write_iops_array2d)
+    write_iops_array2d.append(write_iops_max_values_row)
+    write_csv_file(IOSTAT_READ_IO_FILE_NAME, dev_partition_names, read_iops_array2d)
+    write_csv_file(IOSTAT_WRITE_IO_FILE_NAME, dev_partition_names, write_iops_array2d)
     plt.show()
 
 
@@ -134,10 +139,6 @@ def main(args: List[str]):
     is_view_graph = False
     filter_start_time: Optional = None
     filter_end_time: Optional = None
-    # if EXCEL_OPTION in args:
-    #     is_output_excel = True
-    # if VIEW_GRAPH_OPTION in args:
-    #     is_view_graph = True
     if START_DATETIME_OPTION in args:
         try:
             filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
