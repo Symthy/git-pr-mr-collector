@@ -17,7 +17,7 @@ from openpyxl.chart import LineChart, Reference, Series
 import datetime as dt
 
 # Fixed value
-from analyzeTool.analysis_util import create_max_value_row
+from analyzeTool.analysis_util import create_max_value_row, convert_date_time
 
 PID_INDEX = 0
 CPU_INDEX = 8
@@ -291,14 +291,14 @@ def get_current_date_time(start_date: str, current_time: str) -> str:
     """
     global current_date, is_zero_hour
     if current_date == '':
-        current_date = dt.datetime.strptime(start_date, '%Y%m%d').strftime('%Y-%m-%d')
+        current_date = dt.datetime.strptime(start_date, '%Y%m%d').strftime('%Y/%m/%d')
         is_zero_hour = current_time.startswith('00:')
     if is_zero_hour and current_time.startswith('01:'):
         is_zero_hour = False
     if not is_zero_hour and current_time.startswith('00:'):
         is_zero_hour = True
-        dt_current_date = dt.datetime.strptime(current_date, '%Y-%m-%d') + dt.timedelta(days=1)
-        current_date = dt_current_date.strftime('%Y-%m-%d')
+        dt_current_date = dt.datetime.strptime(current_date, '%Y/%m/%d') + dt.timedelta(days=1)
+        current_date = dt_current_date.strftime('%Y/%m/%d')
     return current_date + ' ' + current_time
 
 
@@ -368,24 +368,6 @@ def analyze_top_log(file_path: str, is_output_excel: bool, is_view_graph: bool, 
     plt.show()
 
 
-def convert_date_time(option: str, args: List[str]):
-    """
-
-    :param option: option name
-    :param args: command line arguments
-    :return: void
-    """
-    if not option in args:
-        return None
-    index = args.index(option)
-    if len(args) > index:
-        filter_start_time = args[index + 1]
-        try:
-            return dt.datetime.strptime(filter_start_time, '%Y-%m-%d %H:%M:%S')
-        except Exception:
-            raise
-
-
 def main(args: List[str]):
     """
 
@@ -402,13 +384,13 @@ def main(args: List[str]):
         try:
             filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
         except Exception:
-            print('invalid --startTime format (YYYY-mm-dd HH:MM:SS)')
+            print('invalid --startTime format (YYYY/mm/dd HH:MM:SS)')
             raise
     if END_DATETIME_OPTION in args:
         try:
             filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
         except Exception:
-            print('invalid --endTime format (YYYY-mm-dd HH:MM:SS)')
+            print('invalid --endTime format (YYYY/mm/dd HH:MM:SS)')
             raise
     file_paths: List[str] = glob.glob("../input/top_*.log")
     for file_path in file_paths:
