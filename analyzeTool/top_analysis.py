@@ -17,7 +17,8 @@ from openpyxl.chart import LineChart, Reference, Series
 import datetime as dt
 
 # Fixed value
-from analyzeTool.analysis_util import create_max_value_row, convert_date_time, create_average_value_row
+from analyzeTool.analysis_util import create_max_value_row, convert_date_time, create_average_value_row, \
+    is_contain_rage_from_start_to_end
 
 PID_INDEX = 0
 CPU_INDEX = 8
@@ -32,8 +33,10 @@ END_DATETIME_OPTION = '--endTime'
 # Changeable values
 FILTER_VALUE = 1.0  # Output only values more than this value
 RANK_TOP_LIMIT = 5  # Maximum number of processes to output
-OUTPUT_TOP_MEM_NAME = 'top_memory_result'  # Output file name and graph title
-OUTPUT_TOP_CPU_NAME = 'top_cpu_result'  # Output file name and graph title
+OUTPUT_TOP_MEM_FILENAME = 'top_memory_result'  # Output file name
+OUTPUT_TOP_MEM_GRAPHTITLE = 'memory use rate'
+OUTPUT_TOP_CPU_FILENAME = 'top_cpu_result'  # Output file name
+OUTPUT_TOP_CPU_GRAPHTITLE = 'cpu use rate'
 
 
 def view_line_graph(name: str, header: List[str], big_order_indexes: List[int], array2d: List[List[str]]):
@@ -49,6 +52,7 @@ def view_line_graph(name: str, header: List[str], big_order_indexes: List[int], 
     times = [array2d[i][0] for i in range(len(array2d)) if i < len(array2d)]
     x_alias = [i for i in times[::int(len(times) / 10)]]
     fig, axes = plt.subplots()
+    fig.subplots_adjust(bottom=0.2, top=0.95)
     for col in range(len(big_order_indexes)):
         if col == 0:
             # skip because column 0 is time
@@ -146,9 +150,14 @@ def create_max_value_order(max_values_per_pid: List[str]) -> List[int]:
     :return: column(process id) index list in big order of max value per process id
     """
     max_values: List[float] = list(map(lambda s: float(s), max_values_per_pid))
-    sorted_max_values = sorted(max_values, reverse=True)
-    big_order_indexes: List[int] = [max_values.index(v) + 1 for v in sorted_max_values]
-    return [0] + big_order_indexes
+    sorted_max_values: List[float] = sorted(max_values, reverse=True)
+    big_order_indexes: List[int] = [0]
+    for v in sorted_max_values:
+        index: int = max_values.index(v) + 1
+        if index in big_order_indexes:
+            continue
+        big_order_indexes.append(index)
+    return big_order_indexes
 
 
 def fill_empty_string(pid_count: int, array2d: List[List[str]]):
@@ -164,12 +173,14 @@ def fill_empty_string(pid_count: int, array2d: List[List[str]]):
         record.extend([''] * diff)
 
 
-def write_file_and_view_graph(name: str, pids_header: List[str], array2d: List[List[str]], is_output_excel: bool,
+def write_file_and_view_graph(filename: str, graph_title: str, pids_header: List[str], array2d: List[List[str]],
+                              is_output_excel: bool,
                               is_view_graph: bool):
     """
     Description:
         output file and view graph.
-    :param name: file name and graph name
+    :param filename: file name
+    :param graph_title: graph title
     :param pids_header: list of process id. index 0 is ''.
     :param array2d: 2d array (row: date time, column: process). 0 row is date time.
     :param is_output_excel: output excel file flag.
@@ -178,48 +189,12 @@ def write_file_and_view_graph(name: str, pids_header: List[str], array2d: List[L
     """
     max_values_per_pid: List[str] = create_max_value_row(array2d)
     big_order_indexes: List[int] = create_max_value_order(max_values_per_pid)
-    view_line_graph(name, pids_header, big_order_indexes, array2d)
+    view_line_graph(graph_title, pids_header, big_order_indexes, array2d)
     array2d.append(['MAX:'] + max_values_per_pid)
     array2d.append(['AVG:'] + create_average_value_row(array2d))
-    write_csv_file(name, pids_header, big_order_indexes, array2d)
+    write_csv_file(filename, pids_header, big_order_indexes, array2d)
     if is_output_excel:
-        write_excel_file(name, pids_header, big_order_indexes, array2d)
-
-
-def except_out_of_start_to_end_filter_range(filter_start_time: Optional, filter_end_time: Optional,
-                                            pids_header: List[str], array2d: List[List[str]]):
-    """
-    Description:
-        except out of start date time to end date time range
-    :param filter_start_time: output to start date time.
-    :param filter_end_time: output to end date time.
-    :param pids_header: process id list. first is ''.
-    :param array2d: 0 row is date time.
-    :return: void
-    """
-    if filter_start_time is None and filter_end_time is None:
-        return
-    # remove out of start to end range
-    for row in reversed(range(len(array2d) - 1)):
-        date_time: dt = dt.datetime.strptime(array2d[row][0], '%Y/%m/%d %H:%M:%S')
-        if filter_start_time is not None and date_time < filter_start_time:
-            del (array2d[row])
-        if filter_end_time is not None and date_time > filter_end_time:
-            del (array2d[row])
-    # remove all empty column
-    delete_column_indexes = []
-    for col in reversed(range(len(array2d[0]) - 1)):
-        is_empty_column = True
-        for row in range(len(array2d)):
-            if array2d[row][col] != '':
-                is_empty_column = False
-                break
-        if is_empty_column:
-            delete_column_indexes.append(col)
-    for col in delete_column_indexes:
-        del (pids_header[col])
-        for row in reversed(range(len(array2d) - 1)):
-            del (array2d[row][col])
+        write_excel_file(filename, pids_header, big_order_indexes, array2d)
 
 
 def add_time_and_value_array2d(datetime: str, pids: List[str], value_dict: Dict, array2d: List[List[str]]):
@@ -303,13 +278,16 @@ def get_current_date_time(start_date: str, current_time: str) -> str:
     return current_date + ' ' + current_time
 
 
-def analyze_top_log_lines(start_date: str, lines: List[str], mem_pids: List[str], cpu_pids: List[str],
-                          time_mem_array2d: List[List[str]], time_cpu_array2d: List[List[str]]):
+def analyze_top_log_lines(start_date: str, lines: List[str], filter_start_time: Optional, filter_end_time: Optional,
+                          mem_pids: List[str], cpu_pids: List[str], time_mem_array2d: List[List[str]],
+                          time_cpu_array2d: List[List[str]]):
     """
     Description:
         analyze top log lines. create 2d array memory use rate and cpu use rate.
     :param start_date: log start date.
     :param lines: log file lines.
+    :param filter_start_time:
+    :param filter_end_time:
     :param mem_pids: list of memory use rate per process.
     :param cpu_pids: list of cpu use rate per process.
     :param time_mem_array2d: 2d array (row: date time, column: process). 0 row is date time.
@@ -319,13 +297,15 @@ def analyze_top_log_lines(start_date: str, lines: List[str], mem_pids: List[str]
     is_pid_value_block = False
     mem_dict: Dict = {}
     cpu_dict: Dict = {}
-    time = ''
+    datetime = ''
     for line in lines:
-        line_columns = line.split();
+        line_columns = line.split()
         if line.startswith('top -'):
+
+            if is_contain_rage_from_start_to_end(datetime, filter_start_time, filter_end_time):
+                add_time_and_mem_cpu_array2d(datetime, mem_pids, cpu_pids, mem_dict, cpu_dict, time_mem_array2d,
+                                             time_cpu_array2d)
             datetime = get_current_date_time(start_date, line_columns[2])
-            add_time_and_mem_cpu_array2d(datetime, mem_pids, cpu_pids, mem_dict, cpu_dict, time_mem_array2d,
-                                         time_cpu_array2d)
             is_pid_value_block = False
             mem_dict = {}
             cpu_dict = {}
@@ -336,14 +316,17 @@ def analyze_top_log_lines(start_date: str, lines: List[str], mem_pids: List[str]
         if is_pid_value_block and len(line_columns) == PID_VALUE_COLUMN_COUNT:
             analyze_pid_value_line(line, mem_pids, mem_dict, MEM_INDEX)
             analyze_pid_value_line(line, cpu_pids, cpu_dict, CPU_INDEX)
-    add_time_and_mem_cpu_array2d(time, mem_pids, cpu_pids, mem_dict, cpu_dict, time_mem_array2d, time_cpu_array2d)
+    if is_contain_rage_from_start_to_end(date_time, filter_start_time, filter_end_time):
+        add_time_and_mem_cpu_array2d(last_datetime, mem_pids, cpu_pids, mem_dict, cpu_dict, time_mem_array2d,
+                                 time_cpu_array2d)
 
 
-def analyze_top_log(file_path: str, is_output_excel: bool, is_view_graph: bool, filter_start_time: dt,
+def analyze_top_log(file_path: str, lines: List[str], is_output_excel: bool, is_view_graph: bool, filter_start_time: dt,
                     filter_end_time: dt):
     """
 
     :param file_path:
+    :param lines:
     :param is_output_excel:
     :param is_view_graph:
     :param filter_end_time:
@@ -355,17 +338,16 @@ def analyze_top_log(file_path: str, is_output_excel: bool, is_view_graph: bool, 
     time_mem_array2d: List[List[str]] = []
     time_cpu_array2d: List[List[str]] = []
     start_date = re.search(r'\d+', file_path).group()
-    with open(file_path, 'r') as f:
-        lines = f.readlines()
-        analyze_top_log_lines(start_date, lines, mem_pids, cpu_pids, time_mem_array2d, time_cpu_array2d)
+    analyze_top_log_lines(start_date, lines, filter_start_time, filter_end_time, mem_pids, cpu_pids, time_mem_array2d,
+                          time_cpu_array2d)
     mem_pids = [''] + mem_pids
     cpu_pids = [''] + cpu_pids
     fill_empty_string(len(mem_pids), time_mem_array2d)
     fill_empty_string(len(cpu_pids), time_cpu_array2d)
-    except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, mem_pids, time_mem_array2d)
-    except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, cpu_pids, time_cpu_array2d)
-    write_file_and_view_graph(OUTPUT_TOP_MEM_NAME, mem_pids, time_mem_array2d, is_output_excel, is_view_graph)
-    write_file_and_view_graph(OUTPUT_TOP_CPU_NAME, cpu_pids, time_cpu_array2d, is_output_excel, is_view_graph)
+    write_file_and_view_graph(OUTPUT_TOP_MEM_FILENAME, OUTPUT_TOP_MEM_GRAPHTITLE, mem_pids, time_mem_array2d,
+                              is_output_excel, is_view_graph)
+    write_file_and_view_graph(OUTPUT_TOP_CPU_FILENAME, OUTPUT_TOP_CPU_GRAPHTITLE, cpu_pids, time_cpu_array2d,
+                              is_output_excel, is_view_graph)
     plt.show()
 
 
@@ -382,20 +364,15 @@ def main(args: List[str]):
     if EXCEL_OPTION in args:
         is_output_excel = True
     if START_DATETIME_OPTION in args:
-        try:
-            filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
-        except Exception:
-            print('invalid --startTime format (YYYY/mm/dd HH:MM:SS)')
-            raise
+        filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
     if END_DATETIME_OPTION in args:
-        try:
-            filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
-        except Exception:
-            print('invalid --endTime format (YYYY/mm/dd HH:MM:SS)')
-            raise
+        filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
     file_paths: List[str] = glob.glob("../input/top_*.log")
+    lines = []
     for file_path in file_paths:
-        analyze_top_log(file_path, is_output_excel, is_view_graph, filter_start_time, filter_end_time)
+        with open(file_path, 'r') as f:
+            lines += f.readlines()
+    analyze_top_log(file_paths[0], lines, is_output_excel, is_view_graph, filter_start_time, filter_end_time)
 
 
 main(sys.argv)

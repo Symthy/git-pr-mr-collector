@@ -5,7 +5,7 @@ import sys
 import matplotlib.pyplot as plt
 from typing import List, Optional, Dict
 from analyzeTool.analysis_util import convert_date_time, except_out_of_start_to_end_filter_range, write_csv_file, \
-    create_max_value_row, create_average_value_row
+    create_max_value_row, create_average_value_row, is_contain_rage_from_start_to_end
 
 R_PER_S_INDEX = 1  # r/s index
 W_PER_S_INDEX = 7  # w/s index
@@ -27,10 +27,7 @@ def view_line_graph(dev_partition_names: List[str], read_iops_array2d: List[List
     :param write_iops_array2d: 2d array (row: date time, column: process). row 0 is date time.
     :return: void
     """
-
-    def plot_graph(ax, graph_title: str, header: List[str], array2d: List[List[str]]):
-        times = [array2d[i][0] for i in range(len(array2d))]
-        x_alias = [time for time in times[::int(len(times) / 10)]]
+    def plot_graph(ax, graph_title: str, times: List[str], x_alias: List[str], header: List[str], array2d: List[List[str]]):
         for col in range(len(array2d[0])):
             if col == 0:
                 # skip because column 0 is time
@@ -41,16 +38,18 @@ def view_line_graph(dev_partition_names: List[str], read_iops_array2d: List[List
             ax.plot(times, y_values, label=header[col])
         ax.set_title(graph_title)
         ax.set_xlabel('Time')
-        ax.set_xticks(x_alias)
-        ax.set_xticklabels(x_alias, rotation=25)
         ax.set_ylabel('IOPS')
+        ax.set_xticks(x_alias)
         ax.legend()
         ax.grid()
-
-    fig, (ax_top, ax_under) = plt.subplots(nrows=2, ncols=1, sharex=False)
-    plot_graph(ax_top, 'Disk IO read (r/s)', dev_partition_names, read_iops_array2d)
-    plot_graph(ax_under, 'Disk IO write (w/s)', dev_partition_names, write_iops_array2d)
-    plt.subplots_adjust(hspace=1.0)
+    times = [write_iops_array2d[i][0] for i in range(len(write_iops_array2d))]
+    x_alias = [time for time in times[::int(len(times) / 10)]]
+    fig, (ax_top, ax_under) = plt.subplots(nrows=2, ncols=1, sharex=True)
+    fig.subplots_adjust(bottom=0.2, top=0.95)
+    plot_graph(ax_top, 'IO read (r/s)', times, x_alias, dev_partition_names, read_iops_array2d)
+    plot_graph(ax_under, 'IO write (w/s)', times, x_alias, dev_partition_names, write_iops_array2d)
+    ax_under.set_xticklabels(x_alias, rotation=25)
+    plt.subplots_adjust(hspace=0.3)
 
 
 def analyze_iostat_extend_dev_log_one_line(line_columns: List[str], dev_partition_names: List[str],
@@ -84,7 +83,8 @@ def is_date_time_line(line: str) -> bool:
     return False
 
 
-def analyze_iostat_log_lines(lines: List[str], dev_partition_names: List[str], read_iops_array2d: List[List[str]],
+def analyze_iostat_log_lines(lines: List[str], filter_start_time: Optional, filter_end_time: Optional,
+                             dev_partition_names: List[str], read_iops_array2d: List[List[str]],
                              write_iops_array2d: List[List[str]]):
     is_got_dev_partition_name = False
     date_time: str = ''
@@ -93,8 +93,9 @@ def analyze_iostat_log_lines(lines: List[str], dev_partition_names: List[str], r
     one_block_line_count: int = 0
     for line in lines:
         if is_date_time_line(line):
-            add_time_iops_array2d(date_time, dev_partition_names, read_iops_dict, read_iops_array2d)
-            add_time_iops_array2d(date_time, dev_partition_names, write_iops_dict, write_iops_array2d)
+            if is_contain_rage_from_start_to_end(date_time, filter_start_time, filter_end_time):
+                add_time_iops_array2d(date_time, dev_partition_names, read_iops_dict, read_iops_array2d)
+                add_time_iops_array2d(date_time, dev_partition_names, write_iops_dict, write_iops_array2d)
             if one_block_line_count != 0 and not is_got_dev_partition_name:
                 is_got_dev_partition_name = True
             one_block_line_count = 0
@@ -110,20 +111,18 @@ def analyze_iostat_log_lines(lines: List[str], dev_partition_names: List[str], r
             analyze_iostat_extend_dev_log_one_line(line_columns, dev_partition_names, read_iops_dict, write_iops_dict,
                                                    is_got_dev_partition_name)
             one_block_line_count += 1
-    add_time_iops_array2d(date_time, dev_partition_names, read_iops_dict, read_iops_array2d)
-    add_time_iops_array2d(date_time, dev_partition_names, write_iops_dict, write_iops_array2d)
+    if is_contain_rage_from_start_to_end(date_time, filter_start_time, filter_end_time):
+        add_time_iops_array2d(date_time, dev_partition_names, read_iops_dict, read_iops_array2d)
+        add_time_iops_array2d(date_time, dev_partition_names, write_iops_dict, write_iops_array2d)
 
 
-def analyze_iostat_log(file_path, is_output_excel, is_view_graph, filter_start_time, filter_end_time):
+def analyze_iostat_log(lines, is_output_excel, is_view_graph, filter_start_time, filter_end_time):
     dev_partition_names: List[str] = []
     read_iops_array2d: List[List[str]] = []
     write_iops_array2d: List[List[str]] = []
-    with open(file_path, 'r', encoding="utf-8_sig") as f:
-        lines = f.readlines()
-        analyze_iostat_log_lines(lines, dev_partition_names, read_iops_array2d, write_iops_array2d)
+    analyze_iostat_log_lines(lines, filter_start_time, filter_end_time, dev_partition_names, read_iops_array2d,
+                             write_iops_array2d)
     dev_partition_names = [''] + dev_partition_names
-    except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, dev_partition_names, read_iops_array2d)
-    except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, dev_partition_names, write_iops_array2d)
     view_line_graph(dev_partition_names, read_iops_array2d, write_iops_array2d)
     read_iops_array2d.append(['MAX:'] + create_max_value_row(read_iops_array2d))
     read_iops_array2d.append(['AVG:'] + create_average_value_row(read_iops_array2d))
@@ -145,20 +144,15 @@ def main(args: List[str]):
     filter_start_time: Optional = None
     filter_end_time: Optional = None
     if START_DATETIME_OPTION in args:
-        try:
-            filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
-        except Exception:
-            print('invalid --startTime format (YYYY/mm/dd HH:MM:SS)')
-            raise
+        filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
     if END_DATETIME_OPTION in args:
-        try:
-            filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
-        except Exception:
-            print('invalid --endTime format (YYYY/mm/dd HH:MM:SS)')
-            raise
+        filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
     file_paths: List[str] = glob.glob("../input/iostat_x_dev_*.log")
+    lines = []
     for file_path in file_paths:
-        analyze_iostat_log(file_path, is_output_excel, is_view_graph, filter_start_time, filter_end_time)
+        with open(file_path, 'r', encoding="utf-8_sig") as f:
+            lines += f.readlines()
+    analyze_iostat_log(lines, is_output_excel, is_view_graph, filter_start_time, filter_end_time)
 
 
 main(sys.argv)
