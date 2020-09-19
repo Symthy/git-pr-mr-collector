@@ -2,6 +2,8 @@ import csv
 from typing import List, Optional
 import datetime as dt
 
+DATETIME_FORMAT = '%Y/%m/%d %H:%M:%S';
+
 
 def write_csv_file(filename: str, header: List[str], array2d: List[List[str]]):
     """
@@ -18,7 +20,11 @@ def write_csv_file(filename: str, header: List[str], array2d: List[List[str]]):
         writer.writerows(array2d)
 
 
-def convert_date_time(option: str, args: List[str]):
+def convert_date_time(datetime: dt):
+    return dt.datetime.strptime(datetime, DATETIME_FORMAT)
+
+
+def convert_option_date_time(option: str, args: List[str]):
     """
     Description:
         convert date time from command line input
@@ -32,7 +38,7 @@ def convert_date_time(option: str, args: List[str]):
     if len(args) > index:
         filter_start_time = args[index + 1]
         try:
-            return dt.datetime.strptime(filter_start_time, '%Y/%m/%d %H:%M:%S')
+            return convert_date_time(filter_start_time)
         except Exception:
             print('invalid {} format ({} YYYY/mm/dd HH:MM:SS)'.format(option, option))
             raise
@@ -91,7 +97,7 @@ def is_contain_rage_from_start_to_end(date_time: str, filter_start_time: Optiona
     """
     if date_time == '':
         return False
-    date_time: dt = dt.datetime.strptime(date_time, '%Y/%m/%d %H:%M:%S')
+    date_time: dt = dt.datetime.strptime(date_time, DATETIME_FORMAT)
     if filter_start_time is not None and date_time < filter_start_time:
         return False
     if filter_end_time is not None and date_time > filter_end_time:
@@ -114,7 +120,7 @@ def except_out_of_start_to_end_filter_range(filter_start_time: Optional, filter_
         return
     # remove out of start to end range
     for row in reversed(range(len(array2d))):
-        date_time: dt = dt.datetime.strptime(array2d[row][0], '%Y/%m/%d %H:%M:%S')
+        date_time: dt = dt.datetime.strptime(array2d[row][0], DATETIME_FORMAT)
         if filter_start_time is not None and date_time < filter_start_time:
             del (array2d[row])
         if filter_end_time is not None and date_time > filter_end_time:

@@ -2,7 +2,7 @@ import glob
 import sys
 from typing import Optional, List
 
-from analyzeTool.analysis_util import convert_date_time, except_out_of_start_to_end_filter_range, write_csv_file, \
+from analyzeTool.analysis_util import convert_option_date_time, write_csv_file, \
     create_max_value_row, create_average_value_row, is_contain_rage_from_start_to_end
 
 START_DATETIME_OPTION = '--startTime'
@@ -38,7 +38,6 @@ def analyze_vmstat_log(lines: List[str], is_output_excel: bool, filter_start_tim
     vmstat_array2d: List[List[str]] = []
     analyze_vmstat_log_lines(lines, filter_start_time, filter_end_time, vmstat_array2d)
     header_labels = [''] + HEADER_LABELS
-    #except_out_of_start_to_end_filter_range(filter_start_time, filter_end_time, header_labels, vmstat_array2d)
     vmstat_array2d.append(['MAX:'] + create_max_value_row(vmstat_array2d))
     vmstat_array2d.append(['AVG:'] + create_average_value_row(vmstat_array2d))
     write_csv_file(OUTPUT_FILE_NAME, header_labels, vmstat_array2d)
@@ -55,9 +54,9 @@ def main(args: List[str]):
     filter_start_time: Optional = None
     filter_end_time: Optional = None
     if START_DATETIME_OPTION in args:
-        filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
+        filter_start_time = convert_option_date_time(START_DATETIME_OPTION, args)
     if END_DATETIME_OPTION in args:
-        filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
+        filter_end_time = convert_option_date_time(END_DATETIME_OPTION, args)
     file_paths: List[str] = glob.glob("../input/vmstat_*.log")
     lines: List[str] = []
     for file_path in file_paths:

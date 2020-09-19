@@ -3,9 +3,10 @@ import glob
 import re
 import sys
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from typing import List, Optional, Dict
-from analyzeTool.analysis_util import convert_date_time, except_out_of_start_to_end_filter_range, write_csv_file, \
-    create_max_value_row, create_average_value_row, is_contain_rage_from_start_to_end
+from analyzeTool.analysis_util import convert_option_date_time, write_csv_file, \
+    create_max_value_row, create_average_value_row, is_contain_rage_from_start_to_end, convert_date_time
 
 R_PER_S_INDEX = 1  # r/s index
 W_PER_S_INDEX = 7  # w/s index
@@ -27,7 +28,7 @@ def view_line_graph(dev_partition_names: List[str], read_iops_array2d: List[List
     :param write_iops_array2d: 2d array (row: date time, column: process). row 0 is date time.
     :return: void
     """
-    def plot_graph(ax, graph_title: str, times: List[str], x_alias: List[str], header: List[str], array2d: List[List[str]]):
+    def plot_graph(ax, graph_title: str, times: List[str], header: List[str], array2d: List[List[str]]):
         for col in range(len(array2d[0])):
             if col == 0:
                 # skip because column 0 is time
@@ -39,16 +40,17 @@ def view_line_graph(dev_partition_names: List[str], read_iops_array2d: List[List
         ax.set_title(graph_title)
         ax.set_xlabel('Time')
         ax.set_ylabel('IOPS')
-        ax.set_xticks(x_alias)
         ax.legend()
         ax.grid()
-    times = [write_iops_array2d[i][0] for i in range(len(write_iops_array2d))]
+    times = [convert_date_time(write_iops_array2d[i][0]) for i in range(len(write_iops_array2d))]
     x_alias = [time for time in times[::int(len(times) / 10)]]
     fig, (ax_top, ax_under) = plt.subplots(nrows=2, ncols=1, sharex=True)
     fig.subplots_adjust(bottom=0.2, top=0.95)
-    plot_graph(ax_top, 'IO read (r/s)', times, x_alias, dev_partition_names, read_iops_array2d)
-    plot_graph(ax_under, 'IO write (w/s)', times, x_alias, dev_partition_names, write_iops_array2d)
-    ax_under.set_xticklabels(x_alias, rotation=25)
+    plot_graph(ax_top, 'IO read (r/s)', times, dev_partition_names, read_iops_array2d)
+    plot_graph(ax_under, 'IO write (w/s)', times, dev_partition_names, write_iops_array2d)
+    ax_under.xaxis.set_major_locator(mdates.DayLocator(bymonthday=None, interval=1, tz=None))
+    ax_under.xaxis.set_major_formatter(mdates.DateFormatter('%Y/%m/%d'))
+    plt.xticks(rotation=30)
     plt.subplots_adjust(hspace=0.3)
 
 
@@ -144,9 +146,9 @@ def main(args: List[str]):
     filter_start_time: Optional = None
     filter_end_time: Optional = None
     if START_DATETIME_OPTION in args:
-        filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
+        filter_start_time = convert_option_date_time(START_DATETIME_OPTION, args)
     if END_DATETIME_OPTION in args:
-        filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
+        filter_end_time = convert_option_date_time(END_DATETIME_OPTION, args)
     file_paths: List[str] = glob.glob("../input/iostat_x_dev_*.log")
     lines = []
     for file_path in file_paths:

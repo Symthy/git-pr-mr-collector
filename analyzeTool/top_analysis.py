@@ -11,14 +11,15 @@ import re
 import sys
 import csv
 import openpyxl
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 from typing import List, Dict, Optional
 from openpyxl.chart import LineChart, Reference, Series
 import datetime as dt
 
 # Fixed value
-from analyzeTool.analysis_util import create_max_value_row, convert_date_time, create_average_value_row, \
-    is_contain_rage_from_start_to_end
+from analyzeTool.analysis_util import create_max_value_row, convert_option_date_time, create_average_value_row, \
+    is_contain_rage_from_start_to_end, convert_date_time
 
 PID_INDEX = 0
 CPU_INDEX = 8
@@ -49,8 +50,7 @@ def view_line_graph(name: str, header: List[str], big_order_indexes: List[int], 
     :param array2d: 2d array (row: date time, column: process). row 0 is date time.
     :return: void
     """
-    times = [array2d[i][0] for i in range(len(array2d)) if i < len(array2d)]
-    x_alias = [i for i in times[::int(len(times) / 10)]]
+    times = [convert_date_time(array2d[i][0]) for i in range(len(array2d)) if i < len(array2d)]
     fig, axes = plt.subplots()
     fig.subplots_adjust(bottom=0.2, top=0.95)
     for col in range(len(big_order_indexes)):
@@ -68,7 +68,8 @@ def view_line_graph(name: str, header: List[str], big_order_indexes: List[int], 
         axes.plot(times, y_values, label=header[col])
     axes.set_title(name)
     axes.set_xlabel('Time')
-    axes.set_xticks(x_alias)
+    axes.xaxis.set_major_locator(mdates.DayLocator(bymonthday=None, interval=1, tz=None))
+    axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y/%m/%d'))
     axes.set_ylabel('Use Rate [%]')
     axes.set_ylim(0, 100)
     axes.legend()
@@ -301,7 +302,6 @@ def analyze_top_log_lines(start_date: str, lines: List[str], filter_start_time: 
     for line in lines:
         line_columns = line.split()
         if line.startswith('top -'):
-
             if is_contain_rage_from_start_to_end(datetime, filter_start_time, filter_end_time):
                 add_time_and_mem_cpu_array2d(datetime, mem_pids, cpu_pids, mem_dict, cpu_dict, time_mem_array2d,
                                              time_cpu_array2d)
@@ -316,8 +316,8 @@ def analyze_top_log_lines(start_date: str, lines: List[str], filter_start_time: 
         if is_pid_value_block and len(line_columns) == PID_VALUE_COLUMN_COUNT:
             analyze_pid_value_line(line, mem_pids, mem_dict, MEM_INDEX)
             analyze_pid_value_line(line, cpu_pids, cpu_dict, CPU_INDEX)
-    if is_contain_rage_from_start_to_end(date_time, filter_start_time, filter_end_time):
-        add_time_and_mem_cpu_array2d(last_datetime, mem_pids, cpu_pids, mem_dict, cpu_dict, time_mem_array2d,
+    if is_contain_rage_from_start_to_end(datetime, filter_start_time, filter_end_time):
+        add_time_and_mem_cpu_array2d(datetime, mem_pids, cpu_pids, mem_dict, cpu_dict, time_mem_array2d,
                                  time_cpu_array2d)
 
 
@@ -364,9 +364,9 @@ def main(args: List[str]):
     if EXCEL_OPTION in args:
         is_output_excel = True
     if START_DATETIME_OPTION in args:
-        filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
+        filter_start_time = convert_option_date_time(START_DATETIME_OPTION, args)
     if END_DATETIME_OPTION in args:
-        filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
+        filter_end_time = convert_option_date_time(END_DATETIME_OPTION, args)
     file_paths: List[str] = glob.glob("../input/top_*.log")
     lines = []
     for file_path in file_paths:

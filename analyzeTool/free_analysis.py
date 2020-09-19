@@ -1,24 +1,30 @@
 import glob
 import sys
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from typing import Optional, List
-from analyzeTool.analysis_util import convert_date_time, write_csv_file, except_out_of_start_to_end_filter_range, \
-    create_max_value_row, create_average_value_row, is_contain_rage_from_start_to_end
+from analyzeTool.analysis_util import convert_option_date_time, write_csv_file, \
+    create_max_value_row, create_average_value_row, is_contain_rage_from_start_to_end, convert_date_time
 
 GET_PARAM_NAME_START_INDEX = 3
 AVAILABLE_NAME_INDEX = 7
 DATE_INDEX = 0
 TIME_INDEX = 1
-AVAILABLE_VALUE_INDEX = 8
 TOTAL_VALUE_INDEX = 3
+USED_VALUE_INDEX = 4
+FREE_VALUE_INDEX = 5
+SHARED_VALUE_INDEX = 6
+BUFF_CACHE_VALUE_INDEX = 7
+AVAILABLE_VALUE_INDEX = 8
+
 GET_VALUE_START_INDEX = 4
-LOG_START_LINE = 1
-LOG_LINE_INCREMENT = 3
+GRAPH_TITLE = 'Memory Usage'
 START_DATETIME_OPTION = '--startTime'
 END_DATETIME_OPTION = '--endTime'
 OUTPUT_FILE_NAME = 'free_result'
 MEM_LABEL = 'Mem:'
-MEM_LABEL_INDEX = 2
+SWAP_LABEL = 'Swap:'
+LABEL_INDEX = 2
 
 
 def view_line_graph(title: str, total: int, header: List[str], array2d: List[List[str]]):
@@ -31,21 +37,21 @@ def view_line_graph(title: str, total: int, header: List[str], array2d: List[Lis
     :param array2d: 2d array (row: date time, column: process). row 0 is date time.
     :return: void
     """
-    times = [array2d[i][0] for i in range(len(array2d)) if i < len(array2d)]
-    x_alias = [i for i in times[::int(len(times) / 10)]]
+    times = [convert_date_time(array2d[i][0]) for i in range(len(array2d)) if i < len(array2d)]
     fig, axes = plt.subplots()
     fig.subplots_adjust(bottom=0.2, top=0.95)
     for col in range(len(array2d[0])):
-        if col != 2:
-            # skip because column 0 is time and view use memory only
+        if col != 6:
+            # skip because column 0 is time and view memory usage only
             continue
         y_values = []
         for row in range(len(array2d)):
             y_values.append(int(array2d[row][col]) if array2d[row][col] != '' else None)
         axes.plot(times, y_values, label=header[col])
+    axes.xaxis.set_major_locator(mdates.DayLocator(bymonthday=None, interval=1, tz=None))
+    axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y/%m/%d'))
     axes.set_title(title)
     axes.set_xlabel('Time')
-    axes.set_xticks(x_alias)
     axes.set_ylabel('Memory [KB]')
     axes.set_ylim(0, total)
     axes.legend()
@@ -55,30 +61,44 @@ def view_line_graph(title: str, total: int, header: List[str], array2d: List[Lis
 
 def analyze_free_log_lines(lines: List[str], total: int, filter_start_time: Optional, filter_end_time: Optional,
                            free_array2d: List[List[str]]):
-    line_counter: int = LOG_START_LINE
-    while line_counter < len(lines):
-        line_columns: List[str] = lines[line_counter].split()
+    array = []
+    for line in lines:
+        line_columns: List[str] = line.split()
         datetime = line_columns[0] + ' ' + line_columns[1]
-        if is_contain_rage_from_start_to_end(datetime, filter_start_time, filter_end_time):
+        if not is_contain_rage_from_start_to_end(datetime, filter_start_time, filter_end_time):
+            array = []
+            continue
+        if line_columns[LABEL_INDEX] == MEM_LABEL:
+            used = line_columns[USED_VALUE_INDEX]
+            free = line_columns[FREE_VALUE_INDEX]
+            shared = line_columns[SHARED_VALUE_INDEX]
+            buffcache = line_columns[BUFF_CACHE_VALUE_INDEX]
             available = line_columns[AVAILABLE_VALUE_INDEX]
             use_memory = str(total - int(available))
-            free_array2d.append(
-                [line_columns[DATE_INDEX] + ' ' + line_columns[TIME_INDEX]] + [available] + [use_memory])
-        line_counter += LOG_LINE_INCREMENT
+            array = [line_columns[DATE_INDEX] + ' ' + line_columns[TIME_INDEX]] + [used] + [free] + [shared] + [
+                buffcache] + [available] + [use_memory]
+        if line_columns[LABEL_INDEX] == SWAP_LABEL:
+            used = line_columns[USED_VALUE_INDEX]
+            free = line_columns[FREE_VALUE_INDEX]
+            array.append(used)
+            array.append(free)
+            free_array2d.append(array)
+            array = []
 
 
 def get_total_memory(lines: List[str]) -> int:
     for line in lines:
         columns = line.split()
-        if columns[MEM_LABEL_INDEX] == MEM_LABEL:
+        if columns[LABEL_INDEX] == MEM_LABEL:
             return int(columns[TOTAL_VALUE_INDEX])
     raise ValueError('Not Found "MEM:" in free log')
 
 
 def analyze_free_params(line: str) -> List[str]:
-    line_columns: List[str] = line.split()
+    # line_columns: List[str] = line.split()
     # return [line_columns[i] for i in range(len(line_columns)) if i >= GET_PARAM_NAME_START_INDEX]
-    return [line_columns[AVAILABLE_NAME_INDEX]] + ['use memory']
+    return ['mem used'] + ['mem free'] + ['mem shared'] + ['mem buff/cache'] + ['available'] + ['Memory Usage'] + [
+        'swap used'] + ['swap free']
 
 
 def analyze_free_logs(lines: List[str], is_output_excel, filter_start_time, filter_end_time):
@@ -86,7 +106,7 @@ def analyze_free_logs(lines: List[str], is_output_excel, filter_start_time, filt
     param_names: List[str] = [''] + analyze_free_params(lines[0])
     total: int = get_total_memory(lines)
     analyze_free_log_lines(lines, total, filter_start_time, filter_end_time, free_array2d)
-    view_line_graph('Use Memory', total, param_names, free_array2d)
+    view_line_graph(GRAPH_TITLE, total, param_names, free_array2d)
     free_array2d.append(['MAX:'] + create_max_value_row(free_array2d))
     free_array2d.append(['AVG:'] + create_average_value_row(free_array2d))
     write_csv_file(OUTPUT_FILE_NAME, param_names, free_array2d)
@@ -104,9 +124,9 @@ def main(args: List[str]):
     filter_start_time: Optional = None
     filter_end_time: Optional = None
     if START_DATETIME_OPTION in args:
-        filter_start_time = convert_date_time(START_DATETIME_OPTION, args)
+        filter_start_time = convert_option_date_time(START_DATETIME_OPTION, args)
     if END_DATETIME_OPTION in args:
-        filter_end_time = convert_date_time(END_DATETIME_OPTION, args)
+        filter_end_time = convert_option_date_time(END_DATETIME_OPTION, args)
     file_paths: List[str] = glob.glob("../input/free_*.log")
     lines = []
     for file_path in file_paths:
