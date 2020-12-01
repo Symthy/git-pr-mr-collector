@@ -175,8 +175,7 @@ def fill_empty_string(pid_count: int, array2d: List[List[str]]):
 
 
 def write_file_and_view_graph(filename: str, graph_title: str, pids_header: List[str], array2d: List[List[str]],
-                              is_output_excel: bool,
-                              is_view_graph: bool):
+                              is_output_excel: bool, is_view_graph: bool):
     """
     Description:
         output file and view graph.

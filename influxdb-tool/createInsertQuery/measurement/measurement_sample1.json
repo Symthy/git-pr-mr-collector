@@ -1,0 +1,25 @@
+{
+  "measurement": "test1",
+  "startTimestamp": "2020-12-01 00:00:00",
+  "tags": [
+    {
+      "keyName": "tagKey1",
+      "baseValue": 10,
+      "valueType": "fixed"
+    }
+  ],
+  "fields": [
+    {
+      "keyName": "fieldKey1",
+      "baseValue": 20,
+      "valueType": "fixed"
+    },
+    {
+      "keyName": "fieldKey2",
+      "baseValue": 30,
+      "valueType": "fixed"
+    }
+  ],
+  "createLineNum": 5,
+  "incrementTimeMinutesPerLine": 5
+}
