@@ -20,8 +20,8 @@ def write_csv_file(filename: str, header: List[str], array2d: List[List[str]]):
         writer.writerows(array2d)
 
 
-def convert_date_time(datetime: dt):
-    return dt.datetime.strptime(datetime, DATETIME_FORMAT)
+def convert_date_time(datetime: str, date_time_format: str = DATETIME_FORMAT):
+    return dt.datetime.strptime(datetime, date_time_format)
 
 
 def convert_option_date_time(option: str, args: List[str]):
