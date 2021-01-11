@@ -2,12 +2,13 @@ import glob
 import sys
 from typing import Optional, List
 
-from analyzeTool.analysis_util import convert_option_date_time, write_csv_file, \
-    create_max_value_row, create_average_value_row, is_contain_rage_from_start_to_end
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 
-START_DATETIME_OPTION = '--startTime'
-END_DATETIME_OPTION = '--endTime'
-OUTPUT_FILE_NAME = 'vmstat_result'
+from analyzeTool.analysis_util import convert_option_date_time, write_csv_file, \
+    create_max_value_row, create_average_value_row, is_contain_rage_from_start_to_end, convert_date_time
+
+# Constant Value
 DATE_INDEX = 0
 TIME_INDEX = 1
 PROCESS_RUN_INDEX = 2
@@ -17,7 +18,44 @@ IO_BLOCK_OUT_INDEX = 11
 CPU_USE_INDEX = 14
 LOG_START_LINE = 2
 LOG_LINE_INCREMENT = 3
+
+# Variables
+START_DATETIME_OPTION = '--startTime'
+END_DATETIME_OPTION = '--endTime'
+OUTPUT_FILE_NAME = 'vmstat_result'
 HEADER_LABELS = ['proc_run', 'mem_free', 'io_bi', 'io_bo', 'cpu_use']
+CPU_USE_INDEX = 4
+GRAPH_TITLE = 'CPU Usage'
+
+
+def view_line_graph_cpu_use(title: str, array2d: List[List[str]]):
+    """
+    Description:
+        create and view line graph by matplotlib.
+    :param title: graph title.
+    :param array2d: 2d array (row: date time, column: process). row 0 is date time.
+    :return: void
+    """
+    times = [convert_date_time(array2d[i][0]) for i in range(len(array2d)) if i < len(array2d)]
+    fig, axes = plt.subplots()
+    fig.subplots_adjust(bottom=0.2, top=0.95)
+    for col in range(len(array2d[0])):
+        if col != CPU_USE_INDEX:
+            # skip because column 0 is time and view memory usage only
+            continue
+        y_values = []
+        for row in range(len(array2d)):
+            y_values.append(int(array2d[row][col]) if array2d[row][col] != '' else None)
+        axes.plot(times, y_values, label=HEADER_LABELS[CPU_USE_INDEX])
+    axes.xaxis.set_major_locator(mdates.DayLocator(bymonthday=None, interval=1, tz=None))
+    axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y/%m/%d'))
+    axes.set_title(title)
+    axes.set_xlabel('Time')
+    axes.set_ylabel('CPU Usage [%]')
+    axes.set_ylim(0, 100)
+    axes.legend()
+    axes.grid()
+    plt.xticks(rotation=30)
 
 
 def analyze_vmstat_log_lines(lines: List[str], filter_start_time: Optional, filter_end_time: Optional,
@@ -38,9 +76,11 @@ def analyze_vmstat_log(lines: List[str], is_output_excel: bool, filter_start_tim
     vmstat_array2d: List[List[str]] = []
     analyze_vmstat_log_lines(lines, filter_start_time, filter_end_time, vmstat_array2d)
     header_labels = [''] + HEADER_LABELS
+    view_line_graph_cpu_use(GRAPH_TITLE, vmstat_array2d)
     vmstat_array2d.append(['MAX:'] + create_max_value_row(vmstat_array2d))
     vmstat_array2d.append(['AVG:'] + create_average_value_row(vmstat_array2d))
     write_csv_file(OUTPUT_FILE_NAME, header_labels, vmstat_array2d)
+    plt.show()
 
 
 def main(args: List[str]):

@@ -2,10 +2,9 @@ import json
 import os
 from datetime import datetime
 import time
-
-# constant value
 from typing import List
 
+# constant value
 JSON_FOLDER_PATH = 'measurement'  # measurement def json path
 MEASUREMENT_KEY = 'measurement'
 START_TIMESTAMP_KEY = 'startTimestamp'

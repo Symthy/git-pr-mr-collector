@@ -1,8 +1,8 @@
 import csv
-from typing import List, Optional
 import datetime as dt
+from typing import List, Optional
 
-DATETIME_FORMAT = '%Y/%m/%d %H:%M:%S';
+DATETIME_FORMAT = '%Y/%m/%d %H:%M:%S'
 
 
 def write_csv_file(filename: str, header: List[str], array2d: List[List[str]]):

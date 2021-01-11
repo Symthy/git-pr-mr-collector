@@ -6,20 +6,20 @@ analyze top log and output csv file (row: time, column: process Id and command n
         --endTime "YYYY-mm-dd" : output end date time filter
 """
 
+import csv
+import datetime as dt
 import glob
 import re
 import sys
-import csv
-import openpyxl
+from typing import List, Dict, Optional
+
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-from typing import List, Dict, Optional
-from openpyxl.chart import LineChart, Reference, Series
-import datetime as dt
-
+import openpyxl
 # Fixed value
 from analyzeTool.analysis_util import create_max_value_row, convert_option_date_time, create_average_value_row, \
     is_contain_rage_from_start_to_end, convert_date_time
+from openpyxl.chart import LineChart, Reference
 
 PID_INDEX = 0
 CPU_INDEX = 8

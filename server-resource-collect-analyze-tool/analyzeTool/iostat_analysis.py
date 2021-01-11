@@ -2,9 +2,10 @@ import datetime as dt
 import glob
 import re
 import sys
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 from typing import List, Optional, Dict
+
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
 from analyzeTool.analysis_util import convert_option_date_time, write_csv_file, \
     create_max_value_row, create_average_value_row, is_contain_rage_from_start_to_end, convert_date_time
 
