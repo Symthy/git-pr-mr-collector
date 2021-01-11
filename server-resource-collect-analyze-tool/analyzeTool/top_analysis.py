@@ -204,7 +204,7 @@ def add_time_and_value_array2d(datetime: str, pids: List[str], value_dict: Dict,
     :param datetime: current date and time of log one line.
     :param pids: list of process id.
     :param value_dict: map of process id and value.
-    :param array2d: 2d array (row: date time, column: process). 0 row is date time.
+    :param array2d: 2d array (row: date time, column: value of process). 0 row is date time.
     :return: void
     """
     if datetime == '':

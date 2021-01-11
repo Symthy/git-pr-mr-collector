@@ -51,6 +51,7 @@ def view_line_graph(title: str, total: int, header: List[str], array2d: List[Lis
             y_values.append(int(array2d[row][col]) if array2d[row][col] != '' else None)
         axes.plot(times, y_values, label=header[col])
     axes.xaxis.set_major_locator(mdates.DayLocator(bymonthday=None, interval=1, tz=None))
+    # axes.xaxis.set_major_locator(mdates.HourLocator(byhour=range(0, 24, 12), tz=None))
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y/%m/%d'))
     axes.set_title(title)
     axes.set_xlabel('Time')

@@ -86,10 +86,12 @@ def create_average_value_row(array2d: List[List[str]]) -> List[str]:
     return average_values
 
 
-def is_contain_rage_from_start_to_end(date_time: str, filter_start_time: Optional, filter_end_time: Optional):
+def is_contain_rage_from_start_to_end(date_time: str, filter_start_time: Optional, filter_end_time: Optional,
+                                      datetime_format: str = DATETIME_FORMAT):
     """
     Description:
         check contain date time range from start to end
+    :param datetime_format:
     :param date_time: date time
     :param filter_start_time: output to start date time.
     :param filter_end_time: output to end date time.
@@ -97,7 +99,7 @@ def is_contain_rage_from_start_to_end(date_time: str, filter_start_time: Optiona
     """
     if date_time == '':
         return False
-    date_time: dt = dt.datetime.strptime(date_time, DATETIME_FORMAT)
+    date_time: dt = dt.datetime.strptime(date_time, datetime_format)
     if filter_start_time is not None and date_time < filter_start_time:
         return False
     if filter_end_time is not None and date_time > filter_end_time:
