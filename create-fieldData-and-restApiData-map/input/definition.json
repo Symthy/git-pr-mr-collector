@@ -1,0 +1,18 @@
+{
+  "base": [
+    {
+      "name": "test_table",
+      "fields": [
+      ]
+    }
+  ],
+  "sql": "SELECT datetime, test_id AS id, ROUND(SUM(test_field1, dummy_value1) / COUNT(*), -2) AS field1, (test_field2 - dummy_value2) AS field2, test_field3 + MIN(dummy_value3) AS field3 FROM test_table WHERE field3 > 0 GROUP BY time, id;",
+  "db_def": {
+    "table": "",
+    "db_fields": [
+      {
+        "key": ""
+      }
+    ]
+  }
+}
