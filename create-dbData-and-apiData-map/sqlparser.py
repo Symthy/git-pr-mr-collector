@@ -4,10 +4,10 @@ import sqlparse
 from sqlparse.sql import TokenList, Token, Function, Identifier, IdentifierList, Parenthesis, Operation, Statement
 from sqlparse.tokens import DML, Keyword, Name
 
-from jsonParser import SQL_PATH, get_target_from_json
+from parser_utils import get_target_from_json
 
 
-def sql_parser(json_data: Dict):
+def sql_parser(json_data: Dict, sql_path: List[str]) -> List[Dict]:
     print('sql_parser():')  # debug
 
     def filter_identifier_list(tkn_list: TokenList, token: Token):
@@ -59,18 +59,20 @@ def sql_parser(json_data: Dict):
                 field_map[tokens[len(tokens) - 1].value] = sql_tokens_inner_function_parser(fp_tokens)
                 continue
             field_map[tokens[len(tokens) - 1].value] = [tokens[0].value]
-        print(field_map)
         return field_map
 
-    def sql_identifier_list_parser(idn_list: List[IdentifierList]):
+    def sql_identifier_list_parser(idn_list: List[IdentifierList]) -> List[Dict]:
+        field_map_list: List[Dict] = []
         for identifier_list in idn_list:
             identifiers: List[Identifier] = [token for token in identifier_list.tokens if type(token) is Identifier]
-            sql_identifiers_parser(identifiers)
+            field_map_list.append(sql_identifiers_parser(identifiers))
+        return field_map_list
 
-    json_sql = get_target_from_json(json_data, SQL_PATH)
+    json_sql = get_target_from_json(json_data, sql_path)
     statements: Statement = sqlparse.parse(json_sql)
     token_list: TokenList = statements[0]
     identifier_lists: List[IdentifierList] = list(
         filter(lambda token: filter_identifier_list(token_list, token), token_list.tokens))
-    sql_identifier_list_parser(identifier_lists)
-
+    result = sql_identifier_list_parser(identifier_lists)
+    print('sql parser result: ' + str(result))  # debug
+    return result
