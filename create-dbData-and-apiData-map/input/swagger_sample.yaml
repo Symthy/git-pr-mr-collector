@@ -449,7 +449,7 @@ paths:
         - name: "password"
           in: "query"
           description: "The password for login in clear text"
-          required: true
+          required: false
           type: "string"
       responses:
         "200":

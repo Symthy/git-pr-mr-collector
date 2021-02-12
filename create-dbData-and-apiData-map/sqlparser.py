@@ -61,18 +61,20 @@ def sql_parser(json_data: Dict, sql_path: List[str]) -> List[Dict]:
             field_map[tokens[len(tokens) - 1].value] = [tokens[0].value]
         return field_map
 
-    def sql_identifier_list_parser(idn_list: List[IdentifierList]) -> List[Dict]:
+    def sql_identifier_list_parser(idn_lists: List[IdentifierList]) -> List[Dict]:
         field_map_list: List[Dict] = []
-        for identifier_list in idn_list:
+        for identifier_list in idn_lists:
+            # remove comma and whitespace
             identifiers: List[Identifier] = [token for token in identifier_list.tokens if type(token) is Identifier]
             field_map_list.append(sql_identifiers_parser(identifiers))
         return field_map_list
 
     json_sql = get_target_from_json(json_data, sql_path)
-    statements: Statement = sqlparse.parse(json_sql)
+    statements: List[Statement] = sqlparse.parse(json_sql)
     token_list: TokenList = statements[0]
     identifier_lists: List[IdentifierList] = list(
         filter(lambda token: filter_identifier_list(token_list, token), token_list.tokens))
+    print(identifier_lists)  # SELECT と FROM の間のデータ
     result = sql_identifier_list_parser(identifier_lists)
     print('sql parser result: ' + str(result))  # debug
     return result

@@ -149,18 +149,19 @@ def definitions_parser(definitions_data: Dict) -> Dict[str, List[Dict[str, str]]
     return definition_dict
 
 
-def paths_parser(paths: Dict) -> Dict[str, List[Dict[str, any]]]:
+def paths_parser(paths: Dict) -> Dict[str, Union[List[Dict[str, any]], str]]:
     path_data_map = {}
+    print('###  path list  ###')
     for path, methods in paths.items():
         if HTTP_METHOD_GET in methods.keys():
             print(path)
             responses: Dict = methods[HTTP_METHOD_GET][RESPONSES_KEY]
             if not STATUS_200_KEY in responses.keys():
-                path_data_map[path] = {}
+                path_data_map[path] = []
                 continue
             status_200_detail: Dict = responses[STATUS_200_KEY]
             if not SCHEMA_KEY in status_200_detail.keys():
-                path_data_map[path] = {}
+                path_data_map[path] = []
                 continue
             schema: Dict = methods[HTTP_METHOD_GET][RESPONSES_KEY][STATUS_200_KEY][SCHEMA_KEY]
             schema_keys = schema.keys()
@@ -170,7 +171,8 @@ def paths_parser(paths: Dict) -> Dict[str, List[Dict[str, any]]]:
                 schema:
                     type: 
                 """
-                path_data_map[path] = [{'field': '', 'value': '', 'type': schema[TYPE_KEY]}]
+                # path_data_map[path] = [{'field': '', 'value': '', 'type': schema[TYPE_KEY]}]
+                path_data_map[path] = [{'field': '', 'type': schema[TYPE_KEY]}]
             if not REF_KEY in schema_keys and not ITEMS_KEY in schema_keys:
                 """
                 [case]
@@ -178,8 +180,10 @@ def paths_parser(paths: Dict) -> Dict[str, List[Dict[str, any]]]:
                     xxxxxx:
                         type: 
                 """
-                path_data_map[path] = [{'field': key, 'value': '', 'type': schema[key][TYPE_KEY]} for key in schema_keys
-                                       if key != TYPE_KEY]
+                # path_data_map[path] = [{'field': key, 'value': '', 'type': schema[key][TYPE_KEY]} for key in schema_keys
+                #                       if key != TYPE_KEY]
+                path_data_map[path] = [{'field': key, 'type': schema[key][TYPE_KEY]} for key in schema_keys if
+                                       key != TYPE_KEY]
             if REF_KEY in schema_keys:
                 """
                 [case]
@@ -211,16 +215,26 @@ def paths_parser(paths: Dict) -> Dict[str, List[Dict[str, any]]]:
                         enum:
                         - xxx
                     """
-                    path_data_map[path] = [{'field': '', 'value': schema_items[ENUM_KEY], 'type': 'string'}]
+                    # path_data_map[path] = [{'field': '', 'value': schema_items[ENUM_KEY], 'type': 'string'}]
+                    path_data_map[path] = [{'field': '', 'type': 'string'}]
     return path_data_map
 
 
 def yaml_parser(yaml_data: Dict):
     paths = yaml_data[PATHS_KEY]
     definitions = yaml_data[DEFINITIONS_KEY]
-    def_dict = definitions_parser(definitions)
+    def_dict: Dict[str, List[Dict[str, str]]] = definitions_parser(definitions)
+    print('###  definitions  ###')
     print(def_dict)
-    paths_dict = paths_parser(paths)
+    paths_dict: Dict[str, Union[List[Dict[str, any]], str]] = paths_parser(paths)
+    print('###  paths (before replace definitions)  ###')
+    print(paths_dict)
+    # replace paths inner definition
+    for path_key in paths_dict.keys():
+        field_data = paths_dict[path_key]
+        if type(field_data) is str:
+            paths_dict[path_key] = def_dict[field_data]
+    print('###  paths (after replace definitions)  ###')
     print(paths_dict)
 
 
