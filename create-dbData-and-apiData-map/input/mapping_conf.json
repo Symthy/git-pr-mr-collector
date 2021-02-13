@@ -1,0 +1,4 @@
+{
+  "test1": "/pet/findByStatus",
+  "test2": "/user/login"
+}

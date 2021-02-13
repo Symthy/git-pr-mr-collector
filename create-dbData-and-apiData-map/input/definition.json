@@ -11,7 +11,8 @@
     "table": "",
     "db_fields": [
       {
-        "key": ""
+        "field": "",
+        "column": ""
       }
     ]
   }

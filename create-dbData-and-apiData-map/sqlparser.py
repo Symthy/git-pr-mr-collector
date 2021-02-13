@@ -7,7 +7,7 @@ from sqlparse.tokens import DML, Keyword, Name
 from parser_utils import get_target_from_json
 
 
-def sql_parser(json_data: Dict, sql_path: List[str]) -> List[Dict]:
+def sql_parser(json_data: Dict, sql_path: List[str]) -> List[Dict[str, List[str]]]:
     print('sql_parser():')  # debug
 
     def filter_identifier_list(tkn_list: TokenList, token: Token):
@@ -61,7 +61,7 @@ def sql_parser(json_data: Dict, sql_path: List[str]) -> List[Dict]:
             field_map[tokens[len(tokens) - 1].value] = [tokens[0].value]
         return field_map
 
-    def sql_identifier_list_parser(idn_lists: List[IdentifierList]) -> List[Dict]:
+    def sql_identifier_list_parser(idn_lists: List[IdentifierList]) -> List[Dict[str, List[str]]]:
         field_map_list: List[Dict] = []
         for identifier_list in idn_lists:
             # remove comma and whitespace
