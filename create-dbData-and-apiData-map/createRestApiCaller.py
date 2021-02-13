@@ -28,78 +28,80 @@ BASE_URL = '/sym/v1/objects'
 CONF_API_EXEC_BAT_TEMPLATE = '''
 @ECHO OFF
 
-set HOST=127.0.0.1
-set PORT=8080
-set BASE_URL=/path/v1/objects
+SET HOST=127.0.0.1
+SET PORT=8080
+SET BASE_URL=/path/v1/objects
+SET CONST_QUERY_NAME=
+SET CONST_QUERY_VALUE=
 '''
 
 API_EXEC_BAT_TEMPLATE = '''
 @ECHO OFF
+SETLOCAL enabledelayedexpansion
 
 call config.bat
 SET API_PATH={{ path }}
+SET QUERY=
 ECHO API execute: {{ path }}
 ECHO -----
 
-{% for paramObj in parameters %}
-{% if paramObj.para_type == 'path' %}
-ECHO Param: {{ paramObj.param_name }} ({{ paramObj.param_type }})
-ECHO   description {{ paramObj.description }}
-:PARAM_INPUT
-SET /P PARAM{{ loop.index }}="Input({{ paramObj.required }}):
-{% if paramObj.required == 'required' %}
-IF ""%PARAM{{ loop.index }}%""=="""" GOTO PARAM_INPUT
-{% endif %}
-{% if paramObj.param_type == 'path' %}
-SET PATH_NAME={% raw %}{{% endraw %}{{ paramObj.param_name }}{% raw %}}{% endraw %}
-API_PATH=!API_PATH:%PATH_NAME%=%PARAM{{ loop.index }}%!
-{% endif %}
-{% endif %}
-{% endfor %}
-curl -v -H "Accept: {{ produces }}" -H "Content-Type: {{ produces }}" -x GET  "http://%HOST%:%PORT%%BASE_URL%%API_PATH%"
+IF NOT ""%CONST_QUERY_NAME%""=="""" (
+  SET QUERY=^?%CONST_QUERY_NAME%^=%CONST_QUERY_VALUE%
+)
+
+SET URL=http://%HOST%:%PORT%%BASE_URL%%API_PATH%%QUERY%
+ECHO %URL%
+curl -v -H "Accept: {{ produces }}" -H "Content-Type: {{ produces }}" -x GET "%URL%"
+
+ENDLOCAL
 '''
 
 EXIST_PARAM_API_EXEC_BAT_TEMPLATE = '''
 @ECHO OFF
+SETLOCAL enabledelayedexpansion
 
 call config.bat
 SET API_PATH={{ path }}
-SET QUERY=?
+SET QUERY=
 ECHO API execute: {{ path }}
 ECHO -----
-
+IF NOT ""%CONST_QUERY_NAME%""=="""" (
+  SET QUERY=%CONST_QUERY_NAME%^=%CONST_QUERY_VALUE%
+)
 {% for paramObj in parameters %}
 ECHO Param: {{ paramObj.param_name }} ({{ paramObj.param_type }})
 ECHO   description {{ paramObj.description }}
 :PARAM_INPUT
-SET /P PARAM{{ loop.index }}="Input({{ paramObj.required }}):
+SET /P PARAM{{ loop.index }}="Input({{ paramObj.required }}):"
 {% if paramObj.required == 'required' %}
 IF ""%PARAM{{ loop.index }}%""=="""" GOTO PARAM_INPUT
 {% endif %}
+
 {% if paramObj.param_type == 'path' %}
 SET PATH_NAME={% raw %}{{% endraw %}{{ paramObj.param_name }}{% raw %}}{% endraw %}
-API_PATH=!API_PATH:%PATH_NAME%=%PARAM{{ loop.index }}%!
+SET API_PATH=!API_PATH:%PATH_NAME%=%PARAM{{ loop.index }}%!
 {% endif %}
 
 {% if paramObj.param_type == 'query' %}
+IF NOT "%CONST_QUERY_NAME%"=="{{ paramObj.param_name }}" (
 {% if paramObj.required == 'optional' %}IF NOT ""%PARAM{{ loop.index }}%""=="""" ({% endif %}
-IF "%QUERY%"="""" (
-QUERY=%QUERY%{{ paramObj.param_name }}=%PARAM{{ loop.index }}%
+IF ""!QUERY!""=="""" (
+SET QUERY={{ paramObj.param_name }}^=%PARAM{{ loop.index }}%
 ) ELSE (
-QUERY=&%QUERY%{{ paramObj.param_name }}=%PARAM{{ loop.index }}%
+SET QUERY=^&!QUERY!{{ paramObj.param_name }}^=%PARAM{{ loop.index }}%
 )
 {% if paramObj.required == 'optional' %}){% endif %}
-{% endif %}
+){% endif %}
 {% endfor %}
-IF NOT "%QUERY%"="""" (
-QUERY=?%QUERY%
+IF NOT ""!QUERY!""=="""" (
+  SET QUERY=^?!QUERY!
 )
 
-set HOST=127.0.0.1
-set PORT=8080
-set BASE_URL=/sym/v1/objects
+SET URL=http://%HOST%:%PORT%%BASE_URL%%API_PATH%%QUERY%
+ECHO %URL%
+curl -v -H "Accept: {{ produces }}" -H "Content-Type: {{ produces }}" -x GET "%URL%"
 
-curl -v -H "Accept: {{ produces }}" -H "Content-Type: {{ produces }}" -x GET  "http://%HOST%:%PORT%%BASE_URL%%API_PATH%%QUERY%"
+ENDLOCAL
 '''
 
 
@@ -176,11 +178,13 @@ class ApiDetail:
 
 
 def output_api_bat(api_detail: ApiDetail):
+    is_path_var = '{' in api_detail.path and '}' in api_detail.path
     filename = api_detail.path[1:].replace('/', '_').replace('{', '').replace('}', '')
-    template = Template(API_EXEC_BAT_TEMPLATE)
-    exist_param_api_bat = template.render(api_detail.convert_dict())
-    with open(f'./output/{filename}.bat', mode='w') as f:
-        f.write(exist_param_api_bat)
+    if not is_path_var:
+        template = Template(API_EXEC_BAT_TEMPLATE)
+        exist_param_api_bat = template.render(api_detail.convert_dict())
+        with open(f'./output/{filename}.bat', mode='w') as f:
+            f.write(exist_param_api_bat)
     template = Template(EXIST_PARAM_API_EXEC_BAT_TEMPLATE)
     exist_param_api_bat = template.render(api_detail.convert_dict())
     with open(f'./output/{filename}_query.bat', mode='w') as f:
@@ -207,7 +211,6 @@ def main():
     api_details = yaml_paths_parser(paths)
     for api in api_details:
         output_api_bat(api)
-        print('###########')
 
 
 main()
