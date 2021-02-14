@@ -1,6 +1,8 @@
 import json
 from typing import Dict, List, Union, Optional
 
+from jinja2 import FileSystemLoader, Environment
+
 from apiYamlParser import api_yaml_load
 from parser_utils import get_target_from_json
 from sqlparser import sql_parser
@@ -265,17 +267,61 @@ class MappingDbAndApiDataList:
     class MappingDbAndApiData:
         def __init__(self, db_base_data: MappingDbAndBaseDataList.MappingDbAndBaseData,
                      api_data: ApiFieldDataList.ApiFieldData):
-            self.__db_table_name = db_base_data.db_table  # from MappingDbAndBaseDataList and MappingBaseAndApiDataList
+            self.__db_table = db_base_data.db_table  # from MappingDbAndBaseDataList and MappingBaseAndApiDataList
             self.__db_field = db_base_data.db_field  # from MappingDbAndBaseDataList
             self.__base_name = db_base_data.base_name  # from MappingDbAndBaseDataList
             self.__base_field = db_base_data.base_field  # from MappingDbAndBaseDataList
             self.__api_name = api_data.api_name  # from ApiFieldDataList and MappingBaseAndApiDataList
-            self.__api_filed_name = api_data.field_name  # from ApiFieldDataList
+            self.__api_field_name = api_data.field_name  # from ApiFieldDataList
             self.__api_field_type = api_data.field_type  # from ApiFieldDataList
             self.__api_field_max_val = api_data.field_max_val  # from ApiFieldDataList
             self.__api_field_min_val = api_data.field_min_val  # from ApiFieldDataList
             self.__api_field_max_len = api_data.field_max_len  # from ApiFieldDataList
             self.__api_field_min_len = api_data.field_min_len  # from ApiFieldDataList
+
+        @property
+        def db_table(self):
+            return self.__db_table
+
+        @property
+        def db_field(self):
+            return self.__db_field
+
+        @property
+        def base_name(self):
+            return self.__base_name
+
+        @property
+        def base_field(self):
+            return self.__base_field
+
+        @property
+        def api_name(self):
+            return self.__api_name
+
+        @property
+        def api_field_name(self):
+            return self.__api_field_name
+
+        @property
+        def api_field_type(self):
+            return self.__api_field_type
+
+        @property
+        def api_field_max_val(self):
+            return self.__api_field_max_val
+
+        @property
+        def api_field_min_val(self):
+            return self.__api_field_min_val
+
+        @property
+        def api_field_max_len(self):
+            return self.__api_field_max_len
+
+        @property
+        def api_field_min_len(self):
+            return self.__api_field_min_len
 
     def __init__(self, db_base_mappings: MappingDbAndBaseDataList, base_api_mappings: MappingBaseAndApiDataList,
                  api_data: ApiFieldDataList):
@@ -291,6 +337,24 @@ class MappingDbAndApiDataList:
             api_field_data: ApiFieldDataList.ApiFieldData = api_data_list.getApiFieldData(api_name, field_name)
             data_list.append(MappingDbAndApiDataList.MappingDbAndApiData(db_base_data, api_field_data))
         return data_list
+
+    def convert_json(self) -> List[Dict[str, str]]:
+        converted_list = []
+        for data in self.data_list:
+            converted_list.append({
+                'db_table': data.db_table,
+                'db_field': data.db_field,
+                'base_name': data.base_name,
+                'base_field': data.base_field,
+                'api_name': data.api_name,
+                'api_field_name': data.api_field_name,
+                'api_field_type': data.api_field_type,
+                'api_field_max_val': data.api_field_max_val,
+                'api_field_min_val': data.api_field_min_val,
+                'api_field_max_len': data.api_field_max_len,
+                'api_field_min_len': data.api_field_min_len
+            })
+        return converted_list
 
 
 def db_data_part_json_parser(json_data: Dict) -> DbDataList:
@@ -337,7 +401,14 @@ def json_parser(json_data: Dict):
     api_data_list: Dict[str, List[Dict[str, str]]] = api_yaml_load()
     api_field_list = ApiFieldDataList(api_data_list)
     # mapping db data nad base data and api data
-    mapping_result = MappingDbAndApiDataList(mapping_db_base_list, mapping_base_api_list, api_field_list)
+    mapping_data_list = MappingDbAndApiDataList(mapping_db_base_list, mapping_base_api_list, api_field_list)
+    # output file
+    env = Environment(loader=FileSystemLoader('./template'))
+    template = env.get_template('mapping_result.md')
+    data = {'mapping_result_list': mapping_data_list.convert_json()}
+    md_file_data = template.render(data)
+    with open('./output/specification.md', mode='w') as f:
+        f.write(md_file_data)
 
 
 def main():
