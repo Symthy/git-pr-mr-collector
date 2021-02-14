@@ -1,3 +1,4 @@
+import json
 from typing import List, Dict
 
 import sqlparse
@@ -78,3 +79,13 @@ def sql_parser(json_data: Dict, sql_path: List[str]) -> List[Dict[str, List[str]
     result = sql_identifier_list_parser(identifier_lists)
     print('sql parser result: ' + str(result))  # debug
     return result
+
+
+def main():
+    json_sql_path = ['sql']
+    with open("input/definition.json", mode="r") as f:
+        def_json_data = json.load(f)
+    sql_parser(def_json_data, json_sql_path)
+
+
+main()

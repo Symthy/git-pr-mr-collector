@@ -1,6 +1,7 @@
 import json
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Optional
 
+from apiYamlParser import api_yaml_load
 from parser_utils import get_target_from_json
 from sqlparser import sql_parser
 
@@ -31,13 +32,13 @@ class BaseDataList:
             return self.__field
 
     def __init__(self):
-        self.data_list: List[BaseDataList.BaseData] = []
+        self.__data_list: List[BaseDataList.BaseData] = []
 
     def add(self, table: str, field: str):
-        self.data_list.append(BaseDataList.BaseData(table, field))
+        self.__data_list.append(BaseDataList.BaseData(table, field))
 
     def getTableName(self, field_name) -> Union[str, None]:
-        for data in self.data_list:
+        for data in self.__data_list:
             if data.field == field_name:
                 return data.table
         return None
@@ -63,10 +64,14 @@ class DbDataList:
             return self.__base_sql_column
 
     def __init__(self):
-        self.data_list: List[DbDataList.DbData] = []
+        self.__data_list: List[DbDataList.DbData] = []
+
+    @property
+    def data_list(self):
+        return self.__data_list
 
     def add(self, table: str, field: str, column: str):
-        self.data_list.append(DbDataList.DbData(table, field, column))
+        self.__data_list.append(DbDataList.DbData(table, field, column))
 
     # def getTableName(self, field_name) -> Union[str, None]:
     #     for data in self.data_list:
@@ -91,37 +96,60 @@ class MappingSqlFieldList:
         def base_fields(self):
             return self.__base_fields
 
-    def __init__(self):
-        self.data_list: List[MappingSqlFieldList.MappingSqlField] = []
+    def __init__(self, mapping_list: List[Dict[str, List[str]]]):
+        self.__data_list: List[MappingSqlFieldList.MappingSqlField] = self.convert(mapping_list)
 
-    def add(self, mapping_list: List[Dict[str, List[str]]]):
+    @staticmethod
+    def convert(mapping_list: List[Dict[str, List[str]]]) -> List[MappingSqlField]:
+        data_list = []
         for mapping_dict in mapping_list:
             for db_field_name in mapping_dict.keys():
-                self.data_list.append(MappingSqlFieldList.MappingSqlField(db_field_name, mapping_dict[db_field_name]))
+                data_list.append(MappingSqlFieldList.MappingSqlField(db_field_name, mapping_dict[db_field_name]))
+        return data_list
 
     def getBaseFields(self, db_field_name) -> Union[List[str], None]:
-        for data in self.data_list:
+        for data in self.__data_list:
             if data.db_field == db_field_name:
                 return data.base_fields
         return None
 
 
-class MappingTableAndFieldList:
-    class MappingTableAndField:
-        # convert from BaseDataList and DbDataList and MappingSqlFieldList
+class MappingDbAndBaseDataList:
+    # convert from BaseDataList and DbDataList and MappingSqlFieldList
+    class MappingDbAndBaseData:
         def __init__(self, db_table: str, db_field: str, base_name: str, base_field: str):
-            self.db_table = db_table
-            self.db_field = db_field
-            self.base_name = base_name
-            self.base_field = base_field
+            self.__db_table = db_table
+            self.__db_field = db_field
+            self.__base_name = base_name
+            self.__base_field = base_field
+
+        @property
+        def db_table(self):
+            return self.__db_table
+
+        @property
+        def db_field(self):
+            return self.__db_field
+
+        @property
+        def base_name(self):
+            return self.__base_name
+
+        @property
+        def base_field(self):
+            return self.__base_field
 
     def __init__(self, db_data_list: DbDataList, base_data_list: BaseDataList, mapping_list: MappingSqlFieldList):
-        self.data_list: List[MappingTableAndFieldList.MappingTableAndField] = self.convert(db_data_list, base_data_list,
-                                                                                           mapping_list)
+        self.__data_list: List[MappingDbAndBaseDataList.MappingDbAndBaseData] \
+            = self.convert(db_data_list, base_data_list, mapping_list)
+
+    @property
+    def data_list(self):
+        return self.__data_list
 
     @staticmethod
     def convert(db_data_list: DbDataList, base_data_list: BaseDataList, mapping_list: MappingSqlFieldList) -> List:
-        data_list: List[MappingTableAndFieldList.MappingTableAndField] = []
+        data_list: List[MappingDbAndBaseDataList.MappingDbAndBaseData] = []
         for db_data in db_data_list.data_list:
             base_fields = mapping_list.getBaseFields(db_data.field)
             if base_fields is None:
@@ -131,23 +159,138 @@ class MappingTableAndFieldList:
                 if table_name is None:
                     continue
                 data_list.append(
-                    MappingTableAndFieldList.MappingTableAndField(db_data.table, db_data.field, table_name, base_field))
+                    MappingDbAndBaseDataList.MappingDbAndBaseData(db_data.table, db_data.field, table_name, base_field))
         return data_list
 
 
-class MappingBaseAndApi:
-    def __init__(self):
-        self.base_name = ''
-        self.api_name = ''
-        self.field = ''
+# from mapping_conf.json
+class MappingBaseAndApiDataList:
+    class MappingBaseAndApiData:
+        def __init__(self, base_name: str, api_name: str):
+            self.__base_name = base_name
+            self.__api_name = api_name
+
+        @property
+        def base_name(self):
+            return self.__base_name
+
+        @property
+        def api_name(self):
+            return self.__api_name
+
+    def __init__(self, api_base_name_map: Dict[str, str]):
+        self.__data_list = self.convert(api_base_name_map)
+
+    @staticmethod
+    def convert(api_base_name_dict: Dict[str, str]) -> List[MappingBaseAndApiData]:
+        data_list = []
+        for base_name, api_name in api_base_name_dict:
+            data_list.append(MappingBaseAndApiDataList.MappingBaseAndApiData(base_name, api_name))
+        return data_list
+
+    def getApiName(self, base_name) -> Union[str, None]:
+        for data in self.__data_list:
+            if data.base_name == base_name:
+                return data.api_name
+        return None
 
 
-class MappingDbAndApiData:
-    def __init__(self):
-        self.db_table_name = ''
-        self.db_field = ''
-        self.api_name = ''
-        self.api_res_filed = ''
+class ApiFieldDataList:
+    class ApiFieldData:
+        FIELD_KEY = 'field'
+        TYPE_KEY = 'type'
+        MAXIMUM_KEY = 'maximum'
+        MINIMUM_KEY = 'minimum'
+        MAX_LEN_KEY = 'maxlength'
+        MIN_LEN_KEY = 'minlength'
+
+        def __init__(self, api_path: str, field_data_dict: Dict[str, str]):
+            self.__api_name: str = api_path
+            self.__field_name: str = field_data_dict[self.FIELD_KEY]
+            self.__field_type: str = field_data_dict[self.TYPE_KEY] if self.TYPE_KEY in field_data_dict else ''
+            self.__field_max_val: str = field_data_dict[self.MAXIMUM_KEY] if self.MAXIMUM_KEY in field_data_dict else ''
+            self.__field_min_val: str = field_data_dict[self.MINIMUM_KEY] if self.MINIMUM_KEY in field_data_dict else ''
+            self.__field_max_len: str = field_data_dict[self.MAX_LEN_KEY] if self.MAX_LEN_KEY in field_data_dict else ''
+            self.__field_min_len: str = field_data_dict[self.MIN_LEN_KEY] if self.MIN_LEN_KEY in field_data_dict else ''
+
+        @property
+        def api_name(self):
+            return self.__api_name
+
+        @property
+        def field_name(self):
+            return self.__field_name
+
+        @property
+        def field_type(self):
+            return self.__field_type
+
+        @property
+        def field_max_val(self):
+            return self.__field_max_val
+
+        @property
+        def field_min_val(self):
+            return self.__field_min_val
+
+        @property
+        def field_max_len(self):
+            return self.__field_max_len
+
+        @property
+        def field_min_len(self):
+            return self.__field_min_len
+
+    def __init__(self, api_data_list: Dict[str, List[Dict[str, str]]]):
+        self.__data_list = self.convert(api_data_list)
+
+    @staticmethod
+    def convert(api_data_dict: Dict[str, List[Dict[str, str]]]) -> List[ApiFieldData]:
+        data_list = []
+        for api_data_path, api_field_data_list in api_data_dict.items():
+            for field_data_dict in api_field_data_list:
+                if ApiFieldDataList.ApiFieldData.FIELD_KEY in field_data_dict:
+                    data_list.append(ApiFieldDataList.ApiFieldData(api_data_path, field_data_dict))
+        return data_list
+
+    def getApiFieldData(self, api_name, field_name) -> Optional[ApiFieldData]:
+        for api_data in self.__data_list:
+            if api_data.api_name == api_name and api_data.field_name == field_name:
+                return api_data
+        return None
+
+
+# final result
+class MappingDbAndApiDataList:
+    class MappingDbAndApiData:
+        def __init__(self, db_base_data: MappingDbAndBaseDataList.MappingDbAndBaseData,
+                     api_data: ApiFieldDataList.ApiFieldData):
+            self.__db_table_name = db_base_data.db_table  # from MappingDbAndBaseDataList and MappingBaseAndApiDataList
+            self.__db_field = db_base_data.db_field  # from MappingDbAndBaseDataList
+            self.__base_name = db_base_data.base_name  # from MappingDbAndBaseDataList
+            self.__base_field = db_base_data.base_field  # from MappingDbAndBaseDataList
+            self.__api_name = api_data.api_name  # from ApiFieldDataList and MappingBaseAndApiDataList
+            self.__api_filed_name = api_data.field_name  # from ApiFieldDataList
+            self.__api_field_type = api_data.field_type  # from ApiFieldDataList
+            self.__api_field_max_val = api_data.field_max_val  # from ApiFieldDataList
+            self.__api_field_min_val = api_data.field_min_val  # from ApiFieldDataList
+            self.__api_field_max_len = api_data.field_max_len  # from ApiFieldDataList
+            self.__api_field_min_len = api_data.field_min_len  # from ApiFieldDataList
+
+    def __init__(self, db_base_mappings: MappingDbAndBaseDataList, base_api_mappings: MappingBaseAndApiDataList,
+                 api_data: ApiFieldDataList):
+        self.data_list = self.convert(db_base_mappings, base_api_mappings, api_data)
+
+    @staticmethod
+    def convert(db_base_mappings: MappingDbAndBaseDataList, base_api_mappings: MappingBaseAndApiDataList,
+                api_data_list: ApiFieldDataList):
+        data_list = []
+        for db_base_data in db_base_mappings.data_list:
+            api_name: str = base_api_mappings.getApiName(db_base_data.base_name)
+            field_name: str = db_base_data.base_field
+            api_field_data: ApiFieldDataList.ApiFieldData = api_data_list.getApiFieldData(api_name, field_name)
+            data_list.append(MappingDbAndApiDataList.MappingDbAndApiData(db_base_data, api_field_data))
+        return data_list
 
 
 def db_data_part_json_parser(json_data: Dict) -> DbDataList:
@@ -185,14 +328,22 @@ def json_parser(json_data: Dict):
     result: List[Dict[str, List[str]]] = sql_parser(json_data, SQL_PATH)
     mapping_sql_list = MappingSqlFieldList(result)
     # mapping db data and base data
-    MappingTableAndFieldList(db_data_list, base_data_list, mapping_sql_list)
-    # mapping api and db data
+    mapping_db_base_list = MappingDbAndBaseDataList(db_data_list, base_data_list, mapping_sql_list)
+    # get mapping api and base data
+    with open("input/mapping_conf.json", mode="r") as f:
+        mapping_json_data: Dict[str, str] = json.load(f)
+    mapping_base_api_list = MappingBaseAndApiDataList(mapping_json_data)
+    # api yml parse
+    api_data_list: Dict[str, List[Dict[str, str]]] = api_yaml_load()
+    api_field_list = ApiFieldDataList(api_data_list)
+    # mapping db data nad base data and api data
+    mapping_result = MappingDbAndApiDataList(mapping_db_base_list, mapping_base_api_list, api_field_list)
 
 
 def main():
     with open("input/definition.json", mode="r") as f:
-        json_data = json.load(f)
-    json_parser(json_data)
+        def_json_data = json.load(f)
+    json_parser(def_json_data)
 
 
 main()

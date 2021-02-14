@@ -149,7 +149,7 @@ def definitions_parser(definitions_data: Dict) -> Dict[str, List[Dict[str, str]]
     return definition_dict
 
 
-def paths_parser(paths: Dict) -> Dict[str, Union[List[Dict[str, any]], str]]:
+def paths_parser(paths: Dict) -> Dict[str, Union[List[Dict[str, str]], str]]:
     path_data_map = {}
     print('###  path list  ###')
     for path, methods in paths.items():
@@ -220,13 +220,13 @@ def paths_parser(paths: Dict) -> Dict[str, Union[List[Dict[str, any]], str]]:
     return path_data_map
 
 
-def yaml_parser(yaml_data: Dict):
+def yaml_parser(yaml_data: Dict) -> Dict[str, List[Dict[str, str]]]:
     paths = yaml_data[PATHS_KEY]
     definitions = yaml_data[DEFINITIONS_KEY]
     def_dict: Dict[str, List[Dict[str, str]]] = definitions_parser(definitions)
     print('###  definitions  ###')
     print(def_dict)
-    paths_dict: Dict[str, Union[List[Dict[str, any]], str]] = paths_parser(paths)
+    paths_dict: Dict[str, Union[List[Dict[str, str]], str]] = paths_parser(paths)
     print('###  paths (before replace definitions)  ###')
     print(paths_dict)
     # replace paths inner definition
@@ -235,13 +235,19 @@ def yaml_parser(yaml_data: Dict):
         if type(field_data) is str:
             paths_dict[path_key] = def_dict[field_data]
     print('###  paths (after replace definitions)  ###')
+    return paths_dict
+
+
+def api_yaml_load() -> Dict[str, List[Dict[str, str]]]:
+    with open("input/swagger_sample.yaml", mode="r") as f:
+        yaml_data = yaml.safe_load(f)
+    paths_dict = yaml_parser(yaml_data)
     print(paths_dict)
+    return paths_dict
 
 
 def main():
-    with open("input/swagger_sample.yaml", mode="r") as f:
-        yaml_data = yaml.safe_load(f)
-    yaml_parser(yaml_data)
+    api_yaml_load()
 
 
 main()
