@@ -44,10 +44,18 @@ class ICsvWritableDataConverter(ABC):
 
 def write_csv(file_title: str, data: ICsvWritableDataConverter):
     file_name = file_title.translate(str.maketrans({'/': '_', ':': '_', ' ': '_'}))
-    with open('out/' + file_name + '.csv', mode='a', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(data.convert_header())
-        writer.writerows(data.convert_body())
+    if data.is_empty():
+        print('  response empty. no create file.')
+        return
+    try:
+        with open('out/' + file_name + '.csv', mode='a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(data.convert_header())
+            writer.writerows(data.convert_body())
+    except Exception as e:
+        print('  create file failure:', e)
+        return
+    print('  create file success.')
 
 
 class PullRequestDataList(ICsvWritableDataConverter):
