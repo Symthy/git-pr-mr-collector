@@ -2,25 +2,26 @@ import csv
 import os
 import shutil
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Callable, Tuple
 
 import requests as requests
 
-OWNER_NAME = "Symthy"
+# changeable values
+REPOSITORY_OWNER_NAME = "Symthy"
 REPOSITORY = "TodoList-ts-pre"
-
-GITHUB_BASEURL = "https://api.github.com"
-GITHUB_GET_PULL_API = GITHUB_BASEURL + "/repos/" + OWNER_NAME + "/" + REPOSITORY + "/pulls"
-STATE_VAL = "all"  # open, all, close
-SORT_VAL = "created"  # updated, created, popularity, long-running
-DIRECTION_VAL = "desc"  # desc, asc
-
 FILTER_PR_CREATOR = [
 
 ]
 FILTER_REVIEW_COMMENTER = [
 
 ]
+
+# constant values
+GITHUB_BASEURL = "https://api.github.com"
+GITHUB_GET_PULL_API = GITHUB_BASEURL + "/repos/" + REPOSITORY_OWNER_NAME + "/" + REPOSITORY + "/pulls"
+STATE_VAL = "all"  # open, all, close
+SORT_VAL = "created"  # updated, created, popularity, long-running
+DIRECTION_VAL = "desc"  # desc, asc
 
 
 class ICsvWritableDataConverter(ABC):
@@ -30,6 +31,14 @@ class ICsvWritableDataConverter(ABC):
 
     @abstractmethod
     def convert_body(self) -> List:
+        pass
+
+    @abstractmethod
+    def write_csv(self, file_title):
+        pass
+
+    @abstractmethod
+    def is_empty(self) -> bool:
         pass
 
 
@@ -78,6 +87,9 @@ class PullRequestDataList(ICsvWritableDataConverter):
     def write_csv(self, file_title):
         write_csv(file_title, self)
 
+    def is_empty(self) -> bool:
+        return len(self.values) == 0
+
 
 class PullRequestReviewCommentList(ICsvWritableDataConverter):
     class PullRequestReviewComment:
@@ -117,9 +129,12 @@ class PullRequestReviewCommentList(ICsvWritableDataConverter):
     def write_csv(self, file_title):
         write_csv(file_title, self)
 
+    def is_empty(self) -> bool:
+        return len(self.values) == 0
+
 
 def main():
-    def build_header():
+    def build_request_header():
         with open('./conf/token') as f:
             github_token = f.read()
         return {
@@ -127,42 +142,54 @@ def main():
             'Authorization': 'token {}'.format(github_token)
         }
 
-    def build_get_pulls_api_url(page_count):
+    def build_get_pulls_api_url(page_count: int):
         return GITHUB_GET_PULL_API + '?state=' + STATE_VAL + f'&page={page_count}&per_page=100'
 
-    def execute_github_api(url):
-        headers = build_header()
+    def build_get_pr_review_comment_url(base_url: str, page_count: int):
+        return base_url + f'?page={page_count}&per_page=100'
+
+    def execute_github_api(url: str) -> List:
+        headers = build_request_header()
         response = requests.get(url, headers=headers)
-        return response.json()
+        print(response.status_code, response.reason, url)
+        if response.status_code == 200:
+            return response.json()
+        return []
 
-    if os.path.exists('out/'):
-        shutil.rmtree('out/')
-    os.makedirs('out/', exist_ok=True)
-
-    # get PR
-    is_get_pr_retry = True
-    pr_page_count = 1
-    while is_get_pr_retry:
-        api_url = build_get_pulls_api_url(pr_page_count)
+    # Callback-only function used by retry_execute_github_api()
+    def get_and_write_pull_requests(page_count: int, non_arg) -> int:
+        api_url = build_get_pulls_api_url(page_count)
         pr_json_array = execute_github_api(api_url)
         pr_data_list = PullRequestDataList(pr_json_array)
         pr_data_list.write_csv('pr_list')
-
-        # get PR review comment
+        # get review comment in PR
         for pr_data in pr_data_list.values:
-            is_get_review_comment_retry = True
-            review_comment_page_count = 1
-            while is_get_review_comment_retry:
-                comments_json_array = execute_github_api(
-                    pr_data.review_comments_url + f'?page={review_comment_page_count}&per_page=100')
-                pr_review_comment_list = PullRequestReviewCommentList(comments_json_array)
-                pr_review_comment_list.write_csv(f'{pr_data.pr_num}-{pr_data.title}')
+            retry_execute_github_api(get_and_write_pr_review_comments, pr_data)
+        return len(pr_json_array)
 
-                review_comment_page_count += 1
-                is_get_review_comment_retry = False if len(comments_json_array) < 100 else True
+    # Callback-only function used by retry_execute_github_api()
+    def get_and_write_pr_review_comments(page_count: int, pr_data) -> int:
+        api_url = build_get_pr_review_comment_url(pr_data.review_comments_url, page_count)
+        comments_json_array = execute_github_api(api_url)
+        pr_review_comment_list = PullRequestReviewCommentList(comments_json_array)
+        pr_review_comment_list.write_csv(f'{pr_data.pr_num}-{pr_data.title}')
+        return len(comments_json_array)
 
-        pr_page_count += 1
-        is_get_pr_retry = False if len(pr_json_array) < 100 else True
+    def retry_execute_github_api(api_execute_func: Callable[[int, any], int], *args):
+        is_retry = True
+        page_count = 1
+        while is_retry:
+            count = api_execute_func(page_count, args[0] if len(args) != 0 else None)
+            page_count += 1
+            is_retry = False if count < 100 else True
+
+    print('START')
+    if os.path.exists('out/'):
+        shutil.rmtree('out/')
+    os.makedirs('out/', exist_ok=True)
+    # get PR and PR review comment
+    retry_execute_github_api(get_and_write_pull_requests)
+    print('END')
 
 
 main()
