@@ -61,21 +61,32 @@ def write_csv(file_title: str, data: ICsvWritableDataConverter):
 class PullRequestDataList(ICsvWritableDataConverter):
     class PullRequestData:
         def __init__(self, json_data):
-            self.pr_num: int = json_data['number']
-            self.title: str = json_data['title']
-            self.create_user: str = json_data['user']['login']
-            self.review_comments_url: str = json_data['review_comments_url']
-            self.comments_url: str = json_data['comments_url']
+            self.__pr_num: int = json_data['number']
+            self.__title: str = json_data['title']
+            self.__create_user: str = json_data['user']['login']
+            self.__review_comments_url: str = json_data['review_comments_url']
+            self.__comments_url: str = json_data['comments_url']
 
         @staticmethod
         def convert_header():
             return ['PR num', 'PR title', 'PR create user', 'review comments url', 'comments url']
 
         def convert_array(self):
-            return [self.pr_num, self.title, self.create_user, self.review_comments_url, self.comments_url]
+            return [self.__pr_num, self.__title, self.__create_user, self.__review_comments_url, self.__comments_url]
+
+        @property
+        def review_comments_url(self) -> str:
+            return self.__review_comments_url
+
+        def build_pr_name(self):
+            return f'{self.__pr_num}-{self.__title}'
 
     def __init__(self, json_array: List):
-        self.values = self.__convert(json_array)
+        self.__values: List[PullRequestDataList.PullRequestData] = self.__convert(json_array)
+
+    @property
+    def values(self) -> List[PullRequestData]:
+        return self.__values
 
     @staticmethod
     def __convert(json_array: List) -> List[PullRequestData]:
@@ -102,22 +113,27 @@ class PullRequestDataList(ICsvWritableDataConverter):
 class PullRequestReviewCommentList(ICsvWritableDataConverter):
     class PullRequestReviewComment:
         def __init__(self, json_data):
-            self.id = json_data['pull_request_review_id']
-            self.reviewer = json_data['user']['login']
-            self.comment = json_data['body']
-            self.review_comment_url = json_data['url']
-            self.file_path = json_data['path']
-            self.diff_hunk = json_data['diff_hunk']
+            self.__id = json_data['pull_request_review_id']
+            self.__reviewer = json_data['user']['login']
+            self.__comment = json_data['body']
+            self.__review_comment_url = json_data['url']
+            self.__file_path = json_data['path']
+            self.__diff_hunk = json_data['diff_hunk']
 
         @staticmethod
         def convert_header():
             return ['review id', 'reviewer', 'comment', 'file name', 'review comment url', 'diff']
 
         def convert_array(self):
-            return [self.id, self.reviewer, self.comment, self.file_path, self.review_comment_url, self.diff_hunk]
+            return [self.__id, self.__reviewer, self.__comment, self.__file_path, self.__review_comment_url,
+                    self.__diff_hunk]
 
     def __init__(self, json_array: List):
-        self.values = self.__convert(json_array)
+        self.__values: List[PullRequestReviewCommentList.PullRequestReviewComment] = self.__convert(json_array)
+
+    @property
+    def values(self) -> List[PullRequestReviewComment]:
+        return self.__values
 
     @staticmethod
     def __convert(json_array: List) -> List[PullRequestReviewComment]:
@@ -180,7 +196,7 @@ def main():
         api_url = build_get_pr_review_comment_url(pr_data.review_comments_url, page_count)
         comments_json_array = execute_github_api(api_url)
         pr_review_comment_list = PullRequestReviewCommentList(comments_json_array)
-        pr_review_comment_list.write_csv(f'{pr_data.pr_num}-{pr_data.title}')
+        pr_review_comment_list.write_csv(pr_data.build_pr_name())
         return len(comments_json_array)
 
     def retry_execute_github_api(api_execute_func: Callable[[int, any], int], *args):
