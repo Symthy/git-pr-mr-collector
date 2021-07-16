@@ -166,10 +166,10 @@ def main():
             'Authorization': 'token {}'.format(github_token)
         }
 
-    def build_get_pulls_api_url(page_count: int):
+    def build_get_pull_requests_api_url(page_count: int):
         return GITHUB_GET_PULL_API + '?state=' + STATE_VAL + f'&page={page_count}&per_page=100'
 
-    def build_get_pr_review_comment_url(base_url: str, page_count: int):
+    def build_get_pr_review_comments_api_url(base_url: str, page_count: int):
         return base_url + f'?page={page_count}&per_page=100'
 
     def execute_github_api(url: str) -> List:
@@ -182,7 +182,7 @@ def main():
 
     # Callback-only function used by retry_execute_github_api()
     def get_and_write_pull_requests(page_count: int, non_arg) -> int:
-        api_url = build_get_pulls_api_url(page_count)
+        api_url = build_get_pull_requests_api_url(page_count)
         pr_json_array = execute_github_api(api_url)
         pr_data_list = PullRequestDataList(pr_json_array)
         pr_data_list.write_csv('pr_list')
@@ -193,7 +193,7 @@ def main():
 
     # Callback-only function used by retry_execute_github_api()
     def get_and_write_pr_review_comments(page_count: int, pr_data) -> int:
-        api_url = build_get_pr_review_comment_url(pr_data.review_comments_url, page_count)
+        api_url = build_get_pr_review_comments_api_url(pr_data.review_comments_url, page_count)
         comments_json_array = execute_github_api(api_url)
         pr_review_comment_list = PullRequestReviewCommentList(comments_json_array)
         pr_review_comment_list.write_csv(pr_data.build_pr_name())
