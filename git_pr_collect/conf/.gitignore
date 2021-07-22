@@ -1,4 +1,4 @@
-target_repository.conf
+target_github_repository.conf
 target_gitlab_project.conf
-token
+github_access_token
 gitlab_access_token

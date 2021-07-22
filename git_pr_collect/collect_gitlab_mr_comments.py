@@ -57,7 +57,6 @@ def main():
         pr_review_comment_list = PullRequestReviewCommentList.gitlab_mr(response_json_review_comments_array, pr_data)
         pr_name = pr_data.build_pr_name()
         pr_review_comment_list.write_csv(OUTPUT_DIR_PATH, pr_name)
-        pr_review_comment_list.write_md(OUTPUT_DIR_PATH, pr_name)
         return len(response_json_review_comments_array)
 
     conf = configparser.ConfigParser()

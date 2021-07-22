@@ -14,8 +14,8 @@ GET_TARGET_PR_STATE_VAL = 'all'  # open, all, close
 GITHUB_BASEURL = 'https://api.github.com'
 GITHUB_GET_PR_API = GITHUB_BASEURL + '/repos/{REPOSITORY_OWNER}/{REPOSITORY}/pulls'
 CONF_DIR_PATH = './conf/'
-GITHUB_TOKEN_FILE_PATH = CONF_DIR_PATH + 'token'
-COLLECT_TARGET_REPOSITORY_CONF_PATH = CONF_DIR_PATH + 'target_repository.conf'
+GITHUB_TOKEN_FILE_PATH = CONF_DIR_PATH + 'github_access_token'
+COLLECT_TARGET_REPOSITORY_CONF_PATH = CONF_DIR_PATH + 'target_github_repository.conf'
 OUTPUT_DIR_PATH = './out/github/'
 PULL_REQUEST_LIST_FILE_NAME = 'pr_list'
 
@@ -26,7 +26,7 @@ def main():
             github_token = f.read()
         return {
             'Accept': 'application/vnd.github.v3+json',
-            'Authorization': 'token {}'.format(github_token)
+            'Authorization': 'github_access_token {}'.format(github_token)
         }
 
     def build_collect_pull_requests_api_url(page_count: int):

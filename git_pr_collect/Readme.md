@@ -4,10 +4,10 @@
 
 ### 初期設定
 
-- conf/token を作成
-- tokenファイルに github access token を記載
-- target_repository.conf.model をコピーして target_repository.conf を作成
-- target_repository.conf に 収集対象のリポジトリとそのオーナーを記載
+- conf/github_access_token を作成
+- github_access_token ファイルを作成し、github access token を記載
+- target_github_repository.conf.model をコピーして target_github_repository.conf を作成
+- target_github_repository.conf に 収集対象のリポジトリとそのオーナーを記載
 
 ### フィルタ機能
 
