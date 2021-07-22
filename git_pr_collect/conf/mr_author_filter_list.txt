@@ -1,0 +1,2 @@
+# filter by GitLab merge request author
+# Please write the MR create user name of the PR that you want to get.

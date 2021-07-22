@@ -1,2 +1,2 @@
-# filter by pull request reviewer
+# filter by GitHub pull request reviewer
 # Please write the PR review user name of the PR that you want to get.
