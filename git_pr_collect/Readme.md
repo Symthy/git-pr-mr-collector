@@ -5,18 +5,59 @@
 ### 初期設定
 
 - conf/github_access_token を作成
-- github_access_token ファイルを作成し、github access token を記載
+- github_access_token ファイルを作成し、github access token のみを記載
 - target_github_repository.conf.model をコピーして target_github_repository.conf を作成
-- target_github_repository.conf に 収集対象のリポジトリとそのオーナーを記載
 
-### フィルタ機能
+初期ファイル作成コマンド (Readme.md がある階層で要実行)
+
+```shell
+touch ./conf/github_access_token
+copy ./conf/target_github_repository.conf.model ./conf/target_github_repository.conf
+```
+
+## 実行
+
+- target_github_repository.conf に 収集対象のリポジトリとそのオーナーを記載してから実行要
+- 収集対象のリポジトリを変更したい場合は、都度 target_github_repository.conf を変更すること
+
+例：リポジトリのURLが `https://github.com/owner-name/repository-name` だった場合、target_github_repository.conf にには以下のように記載
+
+```
+[DEFAULT]
+REPOSITORY_OWNER_NAME=owner-name
+REPOSITORY=repository-name
+```
+
+### PR全収集
+
+コマンド
+
+```
+collect_github_pr_review_comments.py
+```
+
+以下により、フィルタが可能
 
 - PRの作成者でフィルタ
-    - pr_author_filter_list.txtに取得したいPRのPR作成者を記載（空の場合は全取得）
-- PRのレビュ―アでフィルタ
-    - pr_author_filter_list.txtに取得したいPRレビューコメントのPRレビューアを記載（空の場合は全取得）
+    - conf/pr_author_filter_list.txtにPR作成者のGithubアカウント名を記載（空の場合は全取得）
+- PRのレビュアーでフィルタ
+    - conf/pr_author_filter_list.txtにPRレビュアーのGithubアカウント名を記載（空の場合は全取得）
 
-## output
+### 特定のPRのみ収集
+
+コマンド (PRは複数指定可能)
+
+```
+collect_github_pr_review_comments.py --pr <pr番号>
+```
+
+例:
+
+```
+collect_github_pr_review_comments.py --pr 111 112 113
+```
+
+## 出力
 
 - outフォルダに出力
     - pr_list.csv : PRの一覧

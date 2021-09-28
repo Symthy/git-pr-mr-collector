@@ -7,7 +7,8 @@ def execute_get_api(url: str, headers: object) -> List:
     response = requests.get(url, headers=headers)
     print(response.status_code, response.reason, url)
     if response.status_code == 200:
-        return response.json()
+        response_json = response.json()
+        return response_json if isinstance(response_json, list) else [response_json]
     return []
 
 

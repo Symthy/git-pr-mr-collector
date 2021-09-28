@@ -24,23 +24,23 @@ class PullRequestDataList(ICsvConvertAndWriter):
             self.__comments_api_url: str = comments_api_url
 
         @staticmethod
-        def github_pr(json_data) -> __init__:
+        def create_from_github_pr(json_data) -> __init__:
             return PullRequestDataList.PullRequestData(str(json_data['number']), json_data['title'], json_data['body'],
                                                        json_data['user']['login'], json_data['html_url'],
                                                        json_data['review_comments_url'], json_data['comments_url'])
 
         @staticmethod
-        def gitlab_mr(json_data) -> __init__:
+        def create_from_gitlab_mr(json_data) -> __init__:
             return PullRequestDataList.PullRequestData(str(json_data['iid']), json_data['title'],
                                                        json_data['description'], json_data['author']['name'],
                                                        json_data['web_url'], None, None)
 
         @staticmethod
         def convert_header():
-            return ['PR num', 'PR title', 'PR create user', 'PR url']
+            return ['PR num', 'PR title', 'PR create user', 'PR page link']
 
         def convert_array(self):
-            return [self.__pr_num, self.__title, self.__create_user, self.__html_url, self.__comments_api_url]
+            return [self.__pr_num, self.__title, self.__create_user, self.__html_url]
 
         @property
         def pr_num(self) -> str:
@@ -61,18 +61,20 @@ class PullRequestDataList(ICsvConvertAndWriter):
         self.__values: List[PullRequestDataList.PullRequestData] = values
 
     @staticmethod
-    def github_pr(response_json_array) -> __init__:
+    def create_from_github_pr(response_json_array) -> __init__:
         prs: List[PullRequestDataList.PullRequestData] \
-            = [PullRequestDataList.PullRequestData.github_pr(json_data) for json_data in response_json_array]
+            = [PullRequestDataList.PullRequestData.create_from_github_pr(json_data) for json_data in
+               response_json_array]
         filter_pr_create_user_list = read_text_file(PR_AUTHOR_FILTER_LIST_PATH)
         if len(filter_pr_create_user_list) > 0:
             prs = list(filter(lambda pr: pr.create_user in filter_pr_create_user_list, prs))
         return PullRequestDataList(prs)
 
     @staticmethod
-    def gitlab_mr(response_json_array) -> __init__:
+    def create_from_gitlab_mr(response_json_array) -> __init__:
         prs: List[PullRequestDataList.PullRequestData] \
-            = [PullRequestDataList.PullRequestData.gitlab_mr(json_data) for json_data in response_json_array]
+            = [PullRequestDataList.PullRequestData.create_from_gitlab_mr(json_data) for json_data in
+               response_json_array]
         filter_mr_author_list = read_text_file(MR_AUTHOR_FILTER_LIST_PATH)
         if len(filter_mr_author_list) > 0:
             prs = list(filter(lambda pr: pr.create_user in filter_mr_author_list, prs))
@@ -99,9 +101,9 @@ class PullRequestDataList(ICsvConvertAndWriter):
 
 class PullRequestReviewCommentList(ICsvConvertAndWriter, IMarkdownWriter):
     class PullRequestReviewComment(ICsvWritableDataConverter, IMarkdownConvertAndWriter):
-        def __init__(self, id: str, reviewer: str, comment: str, file_path: str, diff_hunk: str,
+        def __init__(self, review_id: str, reviewer: str, comment: str, file_path: str, diff_hunk: str,
                      review_comment_url: str, pr_name: str, pr_create_user: str):
-            self.__id = id
+            self.__review_id = review_id
             self.__reviewer = reviewer
             self.__comment = comment
             self.__file_path = file_path
@@ -114,8 +116,8 @@ class PullRequestReviewCommentList(ICsvConvertAndWriter, IMarkdownWriter):
         def github_pr(json_data, pr_data: PullRequestDataList.PullRequestData) -> __init__:
             return PullRequestReviewCommentList.PullRequestReviewComment(str(json_data['id']),
                                                                          json_data['user']['login'], json_data['body'],
-                                                                         json_data['_links']['html']['href'],
                                                                          json_data['path'], json_data['diff_hunk'],
+                                                                         json_data['_links']['html']['href'],
                                                                          pr_data.build_pr_name(), pr_data.create_user)
 
         @staticmethod
@@ -127,10 +129,10 @@ class PullRequestReviewCommentList(ICsvConvertAndWriter, IMarkdownWriter):
 
         @staticmethod
         def convert_header():
-            return ['review id', 'reviewer', 'file name', 'comment', 'review comment url']
+            return ['review id', 'reviewer', 'file name', 'comment', 'review comment link']
 
         def convert_array(self):
-            return [self.__id, self.__reviewer, self.__file_path, self.__comment, self.__review_comment_url]
+            return [self.__review_id, self.__reviewer, self.__file_path, self.__comment, self.__review_comment_url]
 
         def convert_json(self):
             return {
@@ -144,7 +146,7 @@ class PullRequestReviewCommentList(ICsvConvertAndWriter, IMarkdownWriter):
             }
 
         def write_md(self, output_dir_path, dir_name):
-            write_md(output_dir_path, dir_name, self.__id, self)
+            write_md(output_dir_path, dir_name, self.__review_id, self)
 
         @property
         def reviewer(self):
