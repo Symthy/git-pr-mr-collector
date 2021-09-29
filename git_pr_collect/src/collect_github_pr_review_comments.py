@@ -5,8 +5,8 @@ import shutil
 import sys
 from typing import List
 
-from utils.api_executer import execute_get_api, retry_execute_git_api
-from utils.pr_domain import PullRequestDataList, PullRequestReviewCommentList
+from api.api_executer import execute_get_api, retry_execute_git_api
+from domain.pr_domain import PullRequestDataList, PullRequestReviewCommentList
 
 GET_TARGET_PR_STATE_VAL = 'all'  # open, all, close
 # GET_TARGET_PR_SORT_VAL = 'created'  # updated, created, popularity, long-running
@@ -15,11 +15,12 @@ GET_TARGET_PR_STATE_VAL = 'all'  # open, all, close
 # constant values
 GITHUB_BASEURL = 'https://api.github.com'
 GITHUB_GET_PR_API = GITHUB_BASEURL + '/repos/{REPOSITORY_OWNER}/{REPOSITORY}/pulls'
-CONF_DIR_PATH = './conf/'
+CONF_DIR_PATH = '../conf/'
 GITHUB_TOKEN_FILE_PATH = CONF_DIR_PATH + 'github_access_token'
 COLLECT_TARGET_REPOSITORY_CONF_PATH = CONF_DIR_PATH + 'target_github_repository.conf'
-OUTPUT_DIR_PATH = './out/github/'
+OUTPUT_DIR_PATH = '../out/github/'
 PULL_REQUEST_LIST_FILE_NAME = 'pr_list'
+# options
 OPTION_SPECIFICATION_COLLECT_PR = '--pr'
 
 
@@ -56,13 +57,14 @@ def main(args: List[str]):
         response_json_pr_array = []
         for pr_num in pr_nums:
             api_url = build_get_single_pull_request_api_url(pr_num)
-            response_json_pr_array += execute_get_api(api_url, build_request_header())
+            response_array = execute_get_api(api_url, build_request_header())
+            if len(response_array) == 0:
+                continue
+            response_json_pr_array += response_array
         pr_data_list = PullRequestDataList.create_from_github_pr(response_json_pr_array)
         pr_data_list.write_csv(OUTPUT_DIR_PATH, PULL_REQUEST_LIST_FILE_NAME)
-        # collect review comments in PR (pr_data_list length is always 0 or 1)
-        if len(pr_data_list.values) == 0:
-            return
-        retry_execute_git_api(collect_and_write_pr_review_comments, )
+        for pr_data in pr_data_list.values:
+            retry_execute_git_api(collect_and_write_pr_review_comments, pr_data)
         return
 
     # Callback-only function used by retry_execute_github_api()
@@ -97,6 +99,8 @@ def main(args: List[str]):
             except ValueError:
                 print(f'[Warning] invalid pr option value: {pr_id} is skip')
                 continue
+        pr_list_str = ', '.join(map(str, target_pr_ids))
+        print(f'[Info] collect target pr list: {pr_list_str}')
         collect_and_write_specified_pull_requests(target_pr_ids)
         print('=== END - collect specified pull requests ===')
     else:

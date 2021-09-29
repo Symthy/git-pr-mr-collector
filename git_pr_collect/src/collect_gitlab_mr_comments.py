@@ -3,8 +3,8 @@ from typing import List, Optional
 
 import requests
 
-from utils.api_executer import execute_get_api, retry_execute_git_api
-from utils.pr_domain import PullRequestDataList, PullRequestReviewCommentList
+from src.api.api_executer import execute_get_api, retry_execute_git_api
+from src.domain.pr_domain import PullRequestDataList, PullRequestReviewCommentList
 
 CONF_DIR_PATH = './conf/'
 GITLAB_TOKEN_FILE_PATH = CONF_DIR_PATH + 'gitlab_access_token'

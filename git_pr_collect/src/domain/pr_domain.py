@@ -1,13 +1,13 @@
 import os
 from typing import List, Optional
 
-from utils.file_accessor import convert_filesystem_path_name, read_text_file, ICsvConvertAndWriter, \
-    ICsvWritableDataConverter, IMarkdownWriter, IMarkdownConvertAndWriter, write_md, write_csv
+from file.file_accessor import ICsvConvertAndWriter, ICsvWritableDataConverter, IMarkdownConvertAndWriter, \
+    IMarkdownWriter, convert_filesystem_path_name, read_text_file, write_csv, write_md
 
-PR_AUTHOR_FILTER_LIST_PATH = 'conf/pr_author_filter_list.txt'
-PR_REVIEWER_FILTER_LIST_PATH = 'conf/pr_reviewer_filter_list.txt'
-MR_AUTHOR_FILTER_LIST_PATH = 'conf/mr_author_filter_list.txt'
-MR_REVIEWER_FILTER_LIST_PATH = 'conf/mr_reviewer_filter_list.txt'
+PR_AUTHOR_FILTER_LIST_PATH = '../conf/pr_author_filter_list.txt'
+PR_REVIEWER_FILTER_LIST_PATH = '../conf/pr_reviewer_filter_list.txt'
+MR_AUTHOR_FILTER_LIST_PATH = '../conf/mr_author_filter_list.txt'
+MR_REVIEWER_FILTER_LIST_PATH = '../conf/mr_reviewer_filter_list.txt'
 
 
 class PullRequestDataList(ICsvConvertAndWriter):

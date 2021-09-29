@@ -5,7 +5,7 @@ from typing import List
 
 from jinja2 import Environment, FileSystemLoader
 
-TEMPLATES_DIR_PATH = './templates/'
+TEMPLATES_DIR_PATH = '../templates/'
 PR_REVIEW_COMMENT_TEMPLATE_FILE_NAME = 'pr_review_comment.j2'
 
 

@@ -48,13 +48,13 @@ collect_github_pr_review_comments.py
 コマンド (PRは複数指定可能)
 
 ```
-collect_github_pr_review_comments.py --pr <pr番号>
+./collect_github_pr.sh --pr <pr番号>
 ```
 
-例:
+command example:
 
 ```
-collect_github_pr_review_comments.py --pr 111 112 113
+./collect_github_pr.sh --pr 111 112 113
 ```
 
 ## 出力
@@ -63,3 +63,9 @@ collect_github_pr_review_comments.py --pr 111 112 113
     - pr_list.csv : PRの一覧
     - <PRのタイトル>.csv : PRのレビューコメント一覧
     - <PRのタイトル>フォルダ : PRの各レビューコメントの詳細内容をmdファイルに出力
+
+## 雑記
+
+reference memo:
+
+- [python docker environment setting](https://zuma-lab.com/posts/docker-python-settings)
