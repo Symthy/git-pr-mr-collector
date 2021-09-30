@@ -2,10 +2,22 @@
 echo "pr collect tool start."
 echo
 
+docker_compose_path=`which docker-compose`
+docker_path=`which docker`
+
+if [ -z "${docker_compose_path}" -a -z "${docker_path}" ]; then
+  echo "[Error] Nothing docker command. Please install."
+  exit 1
+fi
 # container build and run
 echo "=== START - docker container build and run ==="
-docker-compose build
-docker-compose up -d
+if [ -n "${docker_compose_path}" ]; then
+  docker-compose build
+  docker-compose up -d
+elif [ -n "${docker_path}" ]; then
+  docker build -f docker/Dockerfile -t python3:latest .
+  docker run -d -t -v `pwd`:/work --rm --name python3 python3:latest
+fi
 echo "=== END - docker container build and run ==="
 echo
 
@@ -19,7 +31,16 @@ echo
 
 # container stop
 echo "=== START - docker container stop ==="
-docker-compose down
+if [ -n "${docker_compose_path}" ]; then
+  docker-compose down
+else
+  result=`docker stop python3`
+  if [ $? -eq 0 ]; then
+    echo container stop success
+  else
+    echo "${result}"
+  fi
+fi
 echo "=== END - docker container stop ==="
 echo
 
