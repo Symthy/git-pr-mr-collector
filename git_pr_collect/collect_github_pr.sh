@@ -28,7 +28,7 @@ elif [ -n "${docker_path}" ]; then
   fi
   docker run -d -t -v `pwd`:/work --rm --name "${DOCKER_CONTAINER_NAME}" "${DOCKER_IMAGE_NAME}"
 fi
-echo "=== END - docker container build and run ==="
+echo "=== END - docker container run ==="
 echo
 
 # execute collect pull request tool

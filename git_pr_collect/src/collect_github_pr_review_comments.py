@@ -6,7 +6,8 @@ import sys
 from typing import List
 
 from api.api_executer import execute_get_api, retry_execute_git_api
-from domain.pr_domain import PullRequestDataList, PullRequestReviewCommentList
+from domain.pull_request import PullRequestDataList
+from domain.pull_request_review_comment import PullRequestReviewCommentList
 
 GET_TARGET_PR_STATE_VAL = 'all'  # open, all, close
 # GET_TARGET_PR_SORT_VAL = 'created'  # updated, created, popularity, long-running
@@ -31,7 +32,7 @@ def build_request_header():
         github_token = f.read()
     return {
         'Accept': 'application/vnd.github.v3+json',
-        'Authorization': 'github_access_token {}'.format(github_token)
+        'Authorization': 'token {}'.format(github_token)
     }
 
 
@@ -46,7 +47,7 @@ def build_get_pull_request_api_base_url(repository_name: str = "") -> str:
 
 def build_get_single_pull_request_api_url(pr_num: int, repository: str) -> str:
     pr_api_url = build_get_pull_request_api_base_url(repository)
-    return f'{pr_api_url}/{pr_num}?state={GET_TARGET_PR_STATE_VAL}'
+    return f'{pr_api_url}/{pr_num}'
 
 
 def build_collect_pull_requests_api_url(page_count: int):
@@ -74,7 +75,7 @@ def collect_and_write_specified_pull_requests(pr_nums: List[int], repository: st
 
 
 # Callback-only function used by retry_execute_github_api()
-def collect_and_write_pull_requests(page_count: int, non_arg) -> int:
+def collect_and_write_all_pull_requests(page_count: int, non_arg) -> int:
     api_url = build_collect_pull_requests_api_url(page_count)
     response_json_pr_array = execute_get_api(api_url, build_request_header())
     pr_data_list = PullRequestDataList.create_from_github_pr(response_json_pr_array)
@@ -147,7 +148,7 @@ def main(args: List[str]):
             shutil.rmtree(OUTPUT_DIR_PATH)
         os.makedirs(OUTPUT_DIR_PATH, exist_ok=True)
         # get PR and PR review comment
-        retry_execute_git_api(collect_and_write_pull_requests)
+        retry_execute_git_api(collect_and_write_all_pull_requests)
         print('=== END - collect pull requests ===')
 
 
