@@ -18,7 +18,7 @@ GET_TARGET_PR_STATE_VAL = 'all'  # open, all, close
 GITHUB_BASEURL = 'https://api.github.com'
 GITHUB_GET_PR_API = GITHUB_BASEURL + '/repos/{REPOSITORY_OWNER}/{REPOSITORY}/pulls'
 CONF_DIR_PATH = '../conf/'
-GITHUB_TOKEN_FILE_PATH = CONF_DIR_PATH + 'github_access_token'
+GITHUB_TOKEN_FILE_PATH = CONF_DIR_PATH + 'github_access_token.txt'
 COLLECT_TARGET_REPOSITORY_CONF_PATH = CONF_DIR_PATH + 'target_github_repository.conf'
 OUTPUT_DIR_PATH = '../out/github/'
 PULL_REQUEST_LIST_FILE_NAME = 'pr_list'
@@ -126,6 +126,10 @@ def main(args: List[str]):
         return target_pr_ids
 
     # main process
+    if os.path.exists(OUTPUT_DIR_PATH):
+        shutil.rmtree(OUTPUT_DIR_PATH)
+    os.makedirs(OUTPUT_DIR_PATH, exist_ok=True)
+
     if OPTION_SPECIFICATION_COLLECT_PR in args:
         print('=== START - collect specified pull requests ===')
         target_repository = resolve_repository_option_value(args)
@@ -141,9 +145,6 @@ def main(args: List[str]):
         print('=== END - collect specified pull requests ===')
     else:
         print('=== START - collect pull requests ===')
-        if os.path.exists(OUTPUT_DIR_PATH):
-            shutil.rmtree(OUTPUT_DIR_PATH)
-        os.makedirs(OUTPUT_DIR_PATH, exist_ok=True)
         # get PR and PR review comment
         retry_execute_git_api(collect_and_write_all_pull_requests)
         print('=== END - collect pull requests ===')

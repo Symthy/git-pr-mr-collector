@@ -33,9 +33,12 @@ class PullRequestReviewCommentList(ICsvConvertAndWriter, IMarkdownWriter):
 
         @staticmethod
         def create_from_gitlab_mr(json_data, pr_data: PullRequestDataList.PullRequestData) -> __init__:
-            return PullRequestReviewCommentList.PullRequestReviewComment(str(json_data['id']),
-                                                                         json_data['author']['name'], json_data['body'],
-                                                                         '[Nothing]', '[Nothing]', '[Nothing]',
+            # All comments can be got, but only get first comment
+            # I don't know how to get diff, file name and url link
+            return PullRequestReviewCommentList.PullRequestReviewComment(str(json_data['notes'][0]['id']),
+                                                                         json_data['notes'][0]['author']['name'],
+                                                                         json_data['notes'][0]['body'],
+                                                                         '[No Support]', '[No Support]', '[No Support]',
                                                                          pr_data.build_pr_name(), pr_data.create_user)
 
         @staticmethod
@@ -79,11 +82,10 @@ class PullRequestReviewCommentList(ICsvConvertAndWriter, IMarkdownWriter):
         return PullRequestReviewCommentList(pr_review_comments)
 
     @staticmethod
-    def gitlab_mr(response_json_array: List, pr_data: PullRequestDataList.PullRequestData) -> __init__:
+    def create_from_gitlab_mr(response_json_array: List, pr_data: PullRequestDataList.PullRequestData) -> __init__:
         pr_review_comments: List \
             = [PullRequestReviewCommentList.PullRequestReviewComment.create_from_gitlab_mr(json_data, pr_data) for
-               json_data in
-               response_json_array]
+               json_data in response_json_array if json_data['notes'][0]['type'] == 'DiffNote']
         filter_mr_reviewer_list = read_filter_list_text_file(MR_REVIEWER_FILTER_LIST_PATH)
         if len(filter_mr_reviewer_list) > 0:
             pr_review_comments = list(
