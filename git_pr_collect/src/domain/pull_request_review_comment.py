@@ -70,26 +70,30 @@ class PullRequestReviewCommentList(ICsvConvertAndWriter, IMarkdownWriter):
         self.__values: List[PullRequestReviewCommentList.PullRequestReviewComment] = values
 
     @staticmethod
-    def github_pr(response_json_array: List, pr_data: PullRequestDataList.PullRequestData) -> __init__:
+    def create_from_github_pr(response_json_array: List, pr_data: PullRequestDataList.PullRequestData,
+                              is_filter: bool = True) -> __init__:
         pr_review_comments: List \
             = [PullRequestReviewCommentList.PullRequestReviewComment.create_from_github_pr(json_data, pr_data) for
                json_data in
                response_json_array]
-        filter_pr_reviewer_list = read_filter_list_text_file(PR_REVIEWER_FILTER_LIST_PATH)
-        if len(filter_pr_reviewer_list) > 0:
-            pr_review_comments = list(
-                filter(lambda comment: comment.reviewer in filter_pr_reviewer_list, pr_review_comments))
+        if is_filter:
+            filter_pr_reviewer_list = read_filter_list_text_file(PR_REVIEWER_FILTER_LIST_PATH)
+            if len(filter_pr_reviewer_list) > 0:
+                pr_review_comments = list(
+                    filter(lambda comment: comment.reviewer in filter_pr_reviewer_list, pr_review_comments))
         return PullRequestReviewCommentList(pr_review_comments)
 
     @staticmethod
-    def create_from_gitlab_mr(response_json_array: List, pr_data: PullRequestDataList.PullRequestData) -> __init__:
+    def create_from_gitlab_mr(response_json_array: List, pr_data: PullRequestDataList.PullRequestData,
+                              is_filter: bool = True) -> __init__:
         pr_review_comments: List \
             = [PullRequestReviewCommentList.PullRequestReviewComment.create_from_gitlab_mr(json_data, pr_data) for
                json_data in response_json_array if json_data['notes'][0]['type'] == 'DiffNote']
-        filter_mr_reviewer_list = read_filter_list_text_file(MR_REVIEWER_FILTER_LIST_PATH)
-        if len(filter_mr_reviewer_list) > 0:
-            pr_review_comments = list(
-                filter(lambda comment: comment.reviewer in filter_mr_reviewer_list, pr_review_comments))
+        if is_filter:
+            filter_mr_reviewer_list = read_filter_list_text_file(MR_REVIEWER_FILTER_LIST_PATH)
+            if len(filter_mr_reviewer_list) > 0:
+                pr_review_comments = list(
+                    filter(lambda comment: comment.reviewer in filter_mr_reviewer_list, pr_review_comments))
         return PullRequestReviewCommentList(pr_review_comments)
 
     @property

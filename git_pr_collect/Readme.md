@@ -58,6 +58,11 @@ REPOSITORY=repository-name
 
 指定したPRのみを収集。オプションでrepositoryの指定も可能
 
+以下により、フィルタが可能
+
+- PRのレビュアーでフィルタ
+    - conf/pr_author_filter_list.txtにPRレビュアーのGithubアカウント名を記載（空の場合は全取得）
+
 コマンド (オプションは順不同)
 
 ```
@@ -126,6 +131,11 @@ PROJECT_ID=xx
 #### Specified GitLab MR collect
 
 指定したMRのみを収集。オプションでrepository(= project)の指定も可能
+
+以下により、フィルタが可能
+
+- MRのレビュアーでフィルタ
+    - conf/mr_author_filter_list.txtにPRレビュアーのGitLabアカウント名を記載（空の場合は全レビュアーを対象とする）
 
 コマンド (オプションは順不同)
 

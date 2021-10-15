@@ -67,7 +67,7 @@ def collect_and_write_specified_pull_requests(pr_nums: List[int], repository: st
         if len(response_array) == 0:
             continue
         response_json_pr_array += response_array
-    pr_data_list = PullRequestDataList.create_from_github_pr(response_json_pr_array)
+    pr_data_list = PullRequestDataList.create_from_github_pr(response_json_pr_array, False)
     pr_data_list.write_csv(OUTPUT_DIR_PATH, PULL_REQUEST_LIST_FILE_NAME)
     for pr_data in pr_data_list.values:
         retry_execute_git_api(collect_and_write_pr_review_comments, pr_data)
@@ -90,7 +90,8 @@ def collect_and_write_all_pull_requests(page_count: int, non_arg) -> int:
 def collect_and_write_pr_review_comments(page_count: int, pr_data: PullRequestDataList.PullRequestData) -> int:
     api_url = build_collect_pr_review_comments_api_url(pr_data.review_comments_api_url, page_count)
     response_json_review_comments_array = execute_get_api(api_url, build_request_header())
-    pr_review_comment_list = PullRequestReviewCommentList.github_pr(response_json_review_comments_array, pr_data)
+    pr_review_comment_list = PullRequestReviewCommentList.create_from_github_pr(response_json_review_comments_array,
+                                                                                pr_data)
     pr_name = pr_data.build_pr_name()
     pr_review_comment_list.write_csv(OUTPUT_DIR_PATH, pr_name)
     pr_review_comment_list.write_md(OUTPUT_DIR_PATH, pr_name)

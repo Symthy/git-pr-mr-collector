@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source "./docker/docker_conf.sh"
+source "./docker/docker_exec.sh"
 
 echo "Github PR collect tool start."
 echo

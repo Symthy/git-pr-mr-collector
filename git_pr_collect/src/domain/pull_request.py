@@ -57,23 +57,25 @@ class PullRequestDataList(ICsvConvertAndWriter):
         self.__values: List[PullRequestDataList.PullRequestData] = values
 
     @staticmethod
-    def create_from_github_pr(response_json_array) -> __init__:
+    def create_from_github_pr(response_json_array, is_filter: bool = True) -> __init__:
         prs: List[PullRequestDataList.PullRequestData] \
             = [PullRequestDataList.PullRequestData.create_from_github_pr(json_data) for json_data in
                response_json_array]
-        filter_pr_create_user_list = read_filter_list_text_file(PR_AUTHOR_FILTER_LIST_PATH)
-        if len(filter_pr_create_user_list) > 0:
-            prs = list(filter(lambda pr: pr.create_user in filter_pr_create_user_list, prs))
+        if is_filter:
+            filter_pr_create_user_list = read_filter_list_text_file(PR_AUTHOR_FILTER_LIST_PATH)
+            if len(filter_pr_create_user_list) > 0:
+                prs = list(filter(lambda pr: pr.create_user in filter_pr_create_user_list, prs))
         return PullRequestDataList(prs)
 
     @staticmethod
-    def create_from_gitlab_mr(response_json_array) -> __init__:
+    def create_from_gitlab_mr(response_json_array, is_filter: bool = True) -> __init__:
         prs: List[PullRequestDataList.PullRequestData] \
             = [PullRequestDataList.PullRequestData.create_from_gitlab_mr(json_data) for json_data in
                response_json_array]
-        filter_mr_author_list = read_filter_list_text_file(MR_AUTHOR_FILTER_LIST_PATH)
-        if len(filter_mr_author_list) > 0:
-            prs = list(filter(lambda pr: pr.create_user in filter_mr_author_list, prs))
+        if is_filter:
+            filter_mr_author_list = read_filter_list_text_file(MR_AUTHOR_FILTER_LIST_PATH)
+            if len(filter_mr_author_list) > 0:
+                prs = list(filter(lambda pr: pr.create_user in filter_mr_author_list, prs))
         return PullRequestDataList(prs)
 
     @property

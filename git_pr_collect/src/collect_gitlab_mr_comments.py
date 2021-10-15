@@ -78,7 +78,7 @@ def collect_and_write_specified_merge_requests(pr_nums: List[int], repository: s
 def collect_and_write_merge_requests(page_count: int, non_arg) -> int:
     api_url = build_collect_gitlab_merge_requests_api_url(page_count)
     response_json_pr_array = execute_get_api(api_url, build_request_header())
-    pr_data_list = PullRequestDataList.create_from_gitlab_mr(response_json_pr_array)
+    pr_data_list = PullRequestDataList.create_from_gitlab_mr(response_json_pr_array, False)
     pr_data_list.write_csv(OUTPUT_DIR_PATH, MERGE_REQUEST_LIST_FILE_NAME)
     # get discussions in MR
     for pr_data in pr_data_list.values:
