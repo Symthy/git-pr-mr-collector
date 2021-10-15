@@ -8,6 +8,7 @@ from typing import List
 from api.api_executer import execute_get_api, retry_execute_git_api
 from domain.pull_request import PullRequestDataList
 from domain.pull_request_review_comment import PullRequestReviewCommentList
+from exception.error import OptionValueError
 
 GET_TARGET_PR_STATE_VAL = 'all'  # open, all, close
 # GET_TARGET_PR_SORT_VAL = 'created'  # updated, created, popularity, long-running
@@ -95,10 +96,6 @@ def collect_and_write_pr_review_comments(page_count: int, pr_data: PullRequestDa
     pr_review_comment_list.write_csv(OUTPUT_DIR_PATH, pr_name)
     pr_review_comment_list.write_md(OUTPUT_DIR_PATH, pr_name)
     return len(response_json_review_comments_array)
-
-
-class OptionValueError(Exception):
-    pass
 
 
 def main(args: List[str]):
