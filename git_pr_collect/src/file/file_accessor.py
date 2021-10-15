@@ -88,7 +88,8 @@ def read_filter_list_text_file(file_path: str):
     try:
         with open(file_path, mode='r') as f:
             lines = f.readlines()
-            return list(filter(lambda line: not line.startswith('#'), lines))
+            lines_exclusion_comment = list(filter(lambda line: not line.startswith('#'), lines))
+            return [line.replace('\n', '') for line in lines_exclusion_comment]
     except Exception as e:
-        print(f'read {file_path} failure:', e)
+        print(f'[Warning] Ignore {file_path}, because read failure:', e)
         return []

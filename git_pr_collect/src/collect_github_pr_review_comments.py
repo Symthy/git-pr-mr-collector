@@ -30,7 +30,7 @@ OPTIONS = [OPTION_SPECIFICATION_COLLECT_PR, OPTION_TARGET_COLLECT_REPOSITORY]
 
 def build_request_header():
     with open(GITHUB_TOKEN_FILE_PATH) as f:
-        github_token = f.read()
+        github_token = f.read().replace('\n', '')
     return {
         'Accept': 'application/vnd.github.v3+json',
         'Authorization': 'token {}'.format(github_token)
@@ -47,13 +47,11 @@ def build_get_pull_request_api_base_url(repository_name: str = "") -> str:
 
 
 def build_get_single_pull_request_api_url(pr_num: int, repository: str) -> str:
-    pr_api_url = build_get_pull_request_api_base_url(repository)
-    return f'{pr_api_url}/{pr_num}'
+    return f'{build_get_pull_request_api_base_url(repository)}/{pr_num}'
 
 
 def build_collect_pull_requests_api_url(page_count: int):
-    pr_api_url = build_get_pull_request_api_base_url()
-    return f'{pr_api_url}?state={GET_TARGET_PR_STATE_VAL}&page={page_count}&per_page=100'
+    return f'{build_get_pull_request_api_base_url()}?state={GET_TARGET_PR_STATE_VAL}&page={page_count}&per_page=100'
 
 
 def build_collect_pr_review_comments_api_url(base_pr_api_url: str, page_count: int):
