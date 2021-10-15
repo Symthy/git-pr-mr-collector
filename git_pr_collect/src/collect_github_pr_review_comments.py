@@ -9,6 +9,7 @@ from api.api_executer import execute_get_api, retry_execute_git_api
 from domain.pull_request import PullRequestDataList
 from domain.pull_request_review_comment import PullRequestReviewCommentList
 from exception.error import OptionValueError
+from option.option_resolver import resolve_repository_option_value, resolve_pr_option_value
 
 GET_TARGET_PR_STATE_VAL = 'all'  # open, all, close
 # GET_TARGET_PR_SORT_VAL = 'created'  # updated, created, popularity, long-running
@@ -97,48 +98,22 @@ def collect_and_write_pr_review_comments(page_count: int, pr_data: PullRequestDa
 
 
 def main(args: List[str]):
-    def resolve_repository_option_value(command_args: List[str]) -> str:
-        if not OPTION_TARGET_COLLECT_REPOSITORY in args:
-            return ""
-        repo_option_index = command_args.index(OPTION_TARGET_COLLECT_REPOSITORY)
-        if len(args) == repo_option_index + 1 or args[repo_option_index + 1] == OPTION_SPECIFICATION_COLLECT_PR:
-            print(f'[Warning] Invalid repo option value. use config file value.')
-            return ""
-        return command_args[repo_option_index + 1]
-
-    def resolve_pr_option_value(command_args: List[str]) -> List:
-        pr_option_index = command_args.index(OPTION_SPECIFICATION_COLLECT_PR)
-        if len(args) == pr_option_index + 1:
-            raise OptionValueError()
-        target_pr_ids = []
-        for arg in command_args[pr_option_index + 1:]:
-            if arg in OPTIONS:
-                break
-            try:
-                target_pr_ids.append(int(arg))
-            except ValueError:
-                print(f'[Warning] invalid pr option value: {arg} is skip')
-                continue
-        if len(target_pr_ids) == 0:
-            raise OptionValueError()
-        return target_pr_ids
-
-    # main process
     if os.path.exists(OUTPUT_DIR_PATH):
         shutil.rmtree(OUTPUT_DIR_PATH)
     os.makedirs(OUTPUT_DIR_PATH, exist_ok=True)
 
     if OPTION_SPECIFICATION_COLLECT_PR in args:
         print('=== START - collect specified pull requests ===')
-        target_repository = resolve_repository_option_value(args)
+        target_repository = resolve_repository_option_value(OPTION_TARGET_COLLECT_REPOSITORY,
+                                                            OPTION_SPECIFICATION_COLLECT_PR, args)
         target_pr_list = []
         try:
-            target_pr_list = resolve_pr_option_value(args)
+            target_pr_list = resolve_pr_option_value(OPTION_SPECIFICATION_COLLECT_PR, OPTIONS, args)
         except OptionValueError:
             print('[ERROR] Invalid pr option value. option format is \"--pr <PR num>[ <PR num>]...\"')
         if not len(target_pr_list) == 0:
             pr_list_str = ', '.join(map(str, target_pr_list))
-            print(f'[Info] collect target pr list: {pr_list_str}')
+            print(f'[Info] collect target PR list: {pr_list_str}')
             collect_and_write_specified_pull_requests(target_pr_list, target_repository)
         print('=== END - collect specified pull requests ===')
     else:

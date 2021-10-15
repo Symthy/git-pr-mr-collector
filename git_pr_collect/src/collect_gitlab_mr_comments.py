@@ -1,14 +1,16 @@
 import configparser
 import os
 import shutil
+import sys
 from typing import List
 
 from api.api_executer import execute_get_api, retry_execute_git_api
 from domain.pull_request import PullRequestDataList
 from domain.pull_request_review_comment import PullRequestReviewCommentList
-from exception.error import NonExistTargetError
-
+from exception.error import NonExistTargetError, OptionValueError
 # constant values
+from option.option_resolver import resolve_repository_option_value, resolve_pr_option_value
+
 GITLAB_BASEURL = 'http://{GITLAB_HOST}/api/v4'
 GITLAB_GET_PROJECTS_URL = GITLAB_BASEURL + '/projects'
 GITLAB_GET_MR_URL = GITLAB_GET_PROJECTS_URL + '/{PROJECT_ID}/merge_requests'
@@ -17,6 +19,11 @@ GITLAB_TOKEN_FILE_PATH = CONF_DIR_PATH + 'gitlab_access_token.txt'
 COLLECT_TARGET_PROJECT_CONF_PATH = CONF_DIR_PATH + 'target_gitlab_project.conf'
 MERGE_REQUEST_LIST_FILE_NAME = 'mr_list'
 OUTPUT_DIR_PATH = '../out/gitlab/'
+
+# options
+OPTION_SPECIFICATION_COLLECT_PR = '--mr'
+OPTION_TARGET_COLLECT_REPOSITORY = '--proj'
+OPTIONS = [OPTION_SPECIFICATION_COLLECT_PR, OPTION_TARGET_COLLECT_REPOSITORY]
 
 
 def build_request_header():
@@ -49,8 +56,7 @@ def build_collect_gitlab_mr_comments_api_url(page_count: int, merge_request_iid:
 
 
 def build_get_single_merge_request_api_url(pr_num: int, repository: str) -> str:
-    pr_api_url = build_get_merge_request_api_base_url(repository)
-    return f'{pr_api_url}/{pr_num}'
+    return f'{build_get_merge_request_api_base_url(repository)}/{pr_num}'
 
 
 def collect_and_write_specified_merge_requests(pr_nums: List[int], repository: str = ""):
@@ -92,7 +98,7 @@ def collect_and_write_mr_comments(page_count: int, pr_data: PullRequestDataList.
     return len(response_json_discussion_array)
 
 
-def main():
+def main(args: List[str]):
     def validate_target_gitlab_project():
         conf = configparser.ConfigParser()
         conf.read(COLLECT_TARGET_PROJECT_CONF_PATH)
@@ -107,10 +113,30 @@ def main():
     #     validate_target_gitlab_project()
     # except NonExistTargetError:
     #     print('[ERROR] Non exist target gitlab project')
+
     if os.path.exists(OUTPUT_DIR_PATH):
         shutil.rmtree(OUTPUT_DIR_PATH)
     os.makedirs(OUTPUT_DIR_PATH, exist_ok=True)
-    retry_execute_git_api(collect_and_write_merge_requests)
+
+    if OPTION_SPECIFICATION_COLLECT_PR in args:
+        print('=== START - collect specified merge requests ===')
+        target_repository = resolve_repository_option_value(OPTION_TARGET_COLLECT_REPOSITORY,
+                                                            OPTION_SPECIFICATION_COLLECT_PR, args)
+        target_pr_list = []
+        try:
+            target_pr_list = resolve_pr_option_value(OPTION_SPECIFICATION_COLLECT_PR, OPTIONS, args)
+        except OptionValueError:
+            print(
+                f'[ERROR] Invalid {OPTION_SPECIFICATION_COLLECT_PR} option value. option format is \"--mr <MR num>[ <MR num>]...\"')
+        if not len(target_pr_list) == 0:
+            pr_list_str = ', '.join(map(str, target_pr_list))
+            print(f'[Info] collect target MR list: {pr_list_str}')
+            collect_and_write_specified_merge_requests(target_pr_list, target_repository)
+        print('=== END - collect specified merge requests ===')
+    else:
+        print('=== START - collect merge requests ===')
+        retry_execute_git_api(collect_and_write_merge_requests)
+        print('=== END - collect merge requests ===')
 
 
-main()
+main(sys.argv)

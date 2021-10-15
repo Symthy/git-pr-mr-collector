@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# For test of gitlab mr collect process
+
 export GITLAB_HOME=/srv/gitlab
 
 docker run --detach \
