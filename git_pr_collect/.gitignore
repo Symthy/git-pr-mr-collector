@@ -1,5 +1,0 @@
-shell
-out
-src/api/__pycache__
-src/file/__pycache__
-src/domain/__pycache__

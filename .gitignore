@@ -1,1 +1,8 @@
 .idea
+shell
+out
+src/api/__pycache__
+src/file/__pycache__
+src/domain/__pycache__
+src/exception/__pycache__
+src/option/__pycache__
